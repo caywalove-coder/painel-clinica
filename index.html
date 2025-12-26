@@ -1,0 +1,575 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Atendimento – Clínica</title>
+
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#f5f7fa; }
+#telefone {
+  width: 95px; /* ou qualquer valor desejado */
+}
+
+/* Cabeçalho fixo */
+header { 
+  background:#4a90e2; 
+  color:#fff; 
+  padding:20px; 
+  text-align:center; 
+  font-size:1.5em; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  z-index: 1000; 
+}
+
+/* Container de abas fixo abaixo do header */
+#abas {
+  padding: 10px 20px;
+  background:#2980b9;
+  position: fixed;
+  top: 60px; /* altura aproximada do header */
+  left: 0;
+  width: 100%;
+  z-index: 999;
+}
+
+/* Botões de abas continuam iguais */
+#abas button {
+  padding:10px 20px; margin-right:5px;
+  border:none; border-radius:4px;
+  background:#2980b9; color:#fff; cursor:pointer;
+}
+#abas button.ativo { background:#27ae60; }
+
+/* Ajusta o padding do main para não ficar escondido atrás do header e abas */
+main { 
+  padding: 120px 20px 20px 20px; /* topo = header + abas */
+}
+
+.aba { display:none; }
+
+table {
+  width:100%; border-collapse:collapse;
+  background:#fff; margin-top:15px;
+}
+th,td { padding:12px; border-bottom:1px solid #ddd; text-align:center; }
+th { background:#eaf0fb; }
+
+.status-confirmado { color:#27ae60; font-weight:bold; }
+.status-cancelado { color:#e74c3c; font-weight:bold; }
+.status-reagendar { color:#f39c12; font-weight:bold; }
+.status-reagendado { color:#8e44ad; font-weight:bold; }
+
+button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
+.btn-confirmar { background:#27ae60; color:#fff; }
+.btn-falta { background:#e74c3c; color:#fff; }
+.btn-editar { background:#f39c12; color:#fff; }
+.btn-excluir { background:#e74c3c; color:#fff; }
+
+#agendamento-container, #whats-box {
+  margin-top:20px; background:#fff; padding:15px;
+  border-radius:5px; max-width:720px;
+}
+
+.whats-msg {
+  background:#e1ffc7;
+  padding:8px;
+  margin-bottom:8px;
+  border-radius:5px;
+}
+
+#horarios-escolhidos li {
+  margin-bottom:6px;
+}
+#horarios-escolhidos button {
+  margin-left:10px;
+  background:#e74c3c;
+  color:#fff;
+}
+
+#filtro-data { margin-bottom:20px; }
+
+.nome-vago { color:#e74c3c; font-weight:bold; }
+.nome-ok { color:#27ae60; font-weight:bold; }
+</style>
+</head>
+
+<body>
+
+<header>Painel de Atendimento – Clínica Exemplo</header>
+
+<main>
+<div id="abas">
+  <button class="ativo" onclick="mostrarAba('agenda', this)">Agenda</button>
+  <button onclick="mostrarAba('cadastro', this)">Cadastro</button>
+  <button onclick="mostrarAba('vagos', this)">Horários vagos</button>
+  <button onclick="mostrarAba('profissionais', this)">Profissionais</button>
+  <button onclick="mostrarAba('whatsapp', this)">WhatsApp</button>
+  <button onclick="mostrarAba('lista-pacientes', this)">Lista de Pacientes</button>
+</div>
+
+<!-- AGENDA -->
+<div id="conteudo-agenda" class="aba">
+  Filtro por data: <input type="date" id="filtro-data" onchange="atualizarTabela()"><br><br>
+<table id="tabela-pacientes">
+<thead>
+<tr>
+<th>Paciente</th><th>Data</th><th>Hora</th><th>Profissional</th><th>Status</th><th>Ações</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<div id="agendamento-container" style="display:none;">
+  <h3 id="titulo-reagendamento"></h3>
+
+  Data:
+  <input type="date" id="data-reagendamento"><br><br>
+
+  <div style="display:flex; gap:30px; flex-wrap:wrap;">
+    <div>
+      <label>Horário:</label><br>
+      <input type="time" id="novo-horario"><br><br>
+      <button onclick="adicionarHorario()">Adicionar horário</button>
+    </div>
+
+    <div>
+      <b>Horários sugeridos:</b>
+      <ul id="horarios-escolhidos"></ul>
+    </div>
+  </div>
+
+  <br>
+  <button onclick="enviarSugestao()">Enviar sugestão</button>
+</div>
+</div>
+
+<!-- CADASTRO -->
+<div id="conteudo-cadastro" class="aba">
+<form onsubmit="cadastrarPaciente(event)">
+Nome: <input id="nome" required><br><br>
+Telefone: <input id="telefone" placeholder="(99)999999999" required><br><br>
+<script>
+const telefoneInput = document.getElementById("telefone");
+
+telefoneInput.addEventListener("input", function(e) {
+  let valor = telefoneInput.value.replace(/\D/g, ""); // Remove tudo que não for número
+  if(valor.length > 11) valor = valor.slice(0,11); // Limita a 11 dígitos
+
+  if(valor.length > 2){
+    valor = `(${valor.slice(0,2)})${valor.slice(2)}`; // Adiciona os parênteses no DDD
+  }
+
+  telefoneInput.value = valor;
+});
+</script>
+Data: <input type="date" id="data" required><br><br>
+Hora: <input type="time" id="horario" required><br><br>
+Profissional:
+<select id="select-profissional" required>
+  <option value="">Selecione um profissional</option>
+</select>
+<br><br>
+<button id="btn-cadastrar">Cadastrar</button>
+</form>
+</div>
+
+<!-- HORÁRIOS VAGOS -->
+<div id="conteudo-vagos" class="aba">
+<table id="tabela-vagos">
+<thead><tr><th>Paciente</th><th>Horário vago</th><th>Data</th><th>Profissional</th><th>Ação</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<!-- PROFISSIONAIS -->
+<div id="conteudo-profissionais" class="aba">
+<h3>Cadastrar profissional</h3>
+<form id="form-prof" onsubmit="adicionarProfissional(event)">
+Nome: <input id="nome-prof" required>
+Especialidade: <input id="esp-prof" required>
+<button>Adicionar</button>
+</form>
+
+<table id="tabela-profissionais">
+<thead>
+<tr><th>Nome</th><th>Especialidade</th><th>Ações</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<!-- WHATSAPP -->
+<div id="conteudo-whatsapp" class="aba">
+<div id="whats-box">
+<div id="whats-log"></div>
+<hr>
+<input id="resposta-paciente" placeholder="Digite a resposta">
+<button onclick="enviarResposta()">Enviar resposta</button>
+</div>
+</div>
+
+<!-- LISTA DE PACIENTES -->
+<div id="conteudo-lista-pacientes" class="aba">
+  <h3>Todos os pacientes cadastrados</h3>
+  <table id="tabela-lista-pacientes">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Telefone</th>
+        <th>Profissional</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+</main>
+
+<script>
+/* ---------- DADOS INICIAIS ---------- */
+const pacientes=[
+ {nome:"Lucas Ferreira", data:"23/12/2025", horario:"09:00", profissional:"Dr. Ana Souza (Cardiologia)", status:"Aguardando"},
+  {nome:"Camila Santos", data:"23/12/2025", horario:"10:30", profissional:"Dr. Bruno Lima (Dermatologia)", status:"Aguardando"},
+  {nome:"Pedro Almeida", data:"24/12/2025", horario:"09:15", profissional:"Dra. Carla Mendes (Endocrinologia)", status:"Aguardando"},
+  {nome:"Juliana Costa", data:"24/12/2025", horario:"10:45", profissional:"Dr. Daniel Rocha (Ortopedia)", status:"Aguardando"},
+  {nome:"Rafael Pereira", data:"25/12/2025", horario:"09:30", profissional:"Dra. Elisa Carvalho (Pediatria)", status:"Aguardando"},
+  {nome:"Fernanda Lima", data:"25/12/2025", horario:"10:00", profissional:"Dr. Felipe Costa (Neurologia)", status:"Aguardando"},
+  {nome:"Bruno Gomes", data:"26/12/2025", horario:"09:00", profissional:"Dra. Gabriela Martins (Ginecologia)", status:"Aguardando"},
+  {nome:"Mariana Rocha", data:"26/12/2025", horario:"10:15", profissional:"Dr. Henrique Dias (Oftalmologia)", status:"Aguardando"},
+  {nome:"Thiago Souza", data:"27/12/2025", horario:"09:45", profissional:"Dra. Isabela Ferreira (Psiquiatria)", status:"Aguardando"},
+  {nome:"Carla Martins", data:"27/12/2025", horario:"10:30", profissional:"Dr. João Pedro (Nutrição)", status:"Aguardando"},
+  {nome:"Gustavo Vieira", data:"28/12/2025", horario:"09:00", profissional:"Dr. Ana Souza (Cardiologia)", status:"Aguardando"},
+  {nome:"Patrícia Alves", data:"28/12/2025", horario:"10:00", profissional:"Dr. Bruno Lima (Dermatologia)", status:"Aguardando"},
+  {nome:"André Lima", data:"29/12/2025", horario:"09:15", profissional:"Dra. Carla Mendes (Endocrinologia)", status:"Aguardando"},
+  {nome:"Beatriz Santos", data:"29/12/2025", horario:"10:30", profissional:"Dr. Daniel Rocha (Ortopedia)", status:"Aguardando"},
+  {nome:"Marcelo Oliveira", data:"30/12/2025", horario:"09:30", profissional:"Dra. Elisa Carvalho (Pediatria)", status:"Aguardando"},
+  {nome:"Renata Freitas", data:"30/12/2025", horario:"10:45", profissional:"Dr. Felipe Costa (Neurologia)", status:"Aguardando"},
+  {nome:"Leonardo Pereira", data:"31/12/2025", horario:"09:00", profissional:"Dra. Gabriela Martins (Ginecologia)", status:"Aguardando"},
+  {nome:"Aline Costa", data:"31/12/2025", horario:"10:30", profissional:"Dr. Henrique Dias (Oftalmologia)", status:"Aguardando"},
+  {nome:"Vitor Almeida", data:"01/01/2026", horario:"09:15", profissional:"Dra. Isabela Ferreira (Psiquiatria)", status:"Aguardando"},
+  {nome:"Tatiane Rocha", data:"01/01/2026", horario:"10:00", profissional:"Dr. João Pedro (Nutrição)", status:"Aguardando"}
+];
+const profissionais=[
+{nome: "Dr. Ana Souza", especialidade: "Cardiologia"},
+  {nome: "Dr. Bruno Lima", especialidade: "Dermatologia"},
+  {nome: "Dra. Carla Mendes", especialidade: "Endocrinologia"},
+  {nome: "Dr. Daniel Rocha", especialidade: "Ortopedia"},
+  {nome: "Dra. Elisa Carvalho", especialidade: "Pediatria"},
+  {nome: "Dr. Felipe Costa", especialidade: "Neurologia"},
+  {nome: "Dra. Gabriela Martins", especialidade: "Ginecologia"},
+  {nome: "Dr. Henrique Dias", especialidade: "Oftalmologia"},
+  {nome: "Dra. Isabela Ferreira", especialidade: "Psiquiatria"},
+  {nome: "Dr. João Pedro", especialidade: "Nutrição"}
+];
+let editandoProfissional=null;
+let editandoPaciente=null;
+
+let pacienteSelecionado=null;
+let horariosVagos=[];
+let horariosSelecionados=[];
+let sugestoesAtuais=[];
+let dataReagendada=null;
+
+/* ---------- CONTROLE DE ABAS ---------- */
+function mostrarAba(a,b){
+ document.querySelectorAll('.aba').forEach(x=>x.style.display='none');
+ document.querySelectorAll('#abas button').forEach(x=>x.classList.remove('ativo'));
+ b.classList.add('ativo');
+ document.getElementById('conteudo-'+a).style.display='block';
+}
+
+/* ---------- PROFISSIONAIS ---------- */
+function adicionarProfissional(e){
+ e.preventDefault();
+ const nomeInput = document.getElementById("nome-prof");
+ const espInput = document.getElementById("esp-prof");
+
+ if(editandoProfissional!==null){
+   profissionais[editandoProfissional]={nome:nomeInput.value, especialidade:espInput.value};
+   editandoProfissional=null;
+ } else {
+   profissionais.push({nome:nomeInput.value, especialidade:espInput.value});
+ }
+
+ nomeInput.value=""; espInput.value="";
+ renderProfissionais();
+ atualizarSelectProfissional();
+}
+
+function renderProfissionais(){
+ const tb=document.querySelector("#tabela-profissionais tbody");
+ tb.innerHTML="";
+ profissionais.forEach((p,i)=>{
+   tb.innerHTML+=`
+   <tr>
+    <td>${p.nome}</td>
+    <td>${p.especialidade}</td>
+    <td>
+      <button class="btn-editar" onclick="editarProfissional(${i})">Editar</button>
+      <button class="btn-excluir" onclick="excluirProfissional(${i})">Excluir</button>
+    </td>
+   </tr>`;
+ });
+}
+
+function editarProfissional(i){
+ const nomeInput = document.getElementById("nome-prof");
+ const espInput = document.getElementById("esp-prof");
+ nomeInput.value=profissionais[i].nome;
+ espInput.value=profissionais[i].especialidade;
+ editandoProfissional=i;
+}
+
+function excluirProfissional(i){
+ if(confirm("Excluir este profissional?")){
+   profissionais.splice(i,1);
+   renderProfissionais();
+   atualizarSelectProfissional();
+ }
+}
+
+function atualizarSelectProfissional(){
+ const select=document.getElementById("select-profissional");
+ select.innerHTML='<option value="">Selecione um profissional</option>';
+ profissionais.forEach((p,i)=>{
+   select.innerHTML+=`<option value="${i}">${p.nome} (${p.especialidade})</option>`;
+ });
+}
+
+/* ---------- AGENDA ---------- */
+function atualizarTabela(){
+ const tb=document.querySelector("#tabela-pacientes tbody");
+ tb.innerHTML="";
+ const filtro=document.getElementById("filtro-data").value;
+
+ // Ordenar pacientes por data e horário
+ const pacientesOrdenados = [...pacientes].sort((a,b)=>{
+   const [diaA,mesA,anoA] = a.data.split("/").map(Number);
+   const [diaB,mesB,anoB] = b.data.split("/").map(Number);
+   const dateA = new Date(anoA, mesA-1, diaA, ...a.horario.split(":").map(Number));
+   const dateB = new Date(anoB, mesB-1, diaB, ...b.horario.split(":").map(Number));
+   return dateA - dateB;
+ });
+
+ pacientesOrdenados.forEach((p)=>{
+   if(filtro && p.data!==filtro.split("-").reverse().join("/")) return;
+
+   const i = pacientes.indexOf(p); // índice real no array original
+
+   tb.innerHTML+=`
+   <tr>
+     <td>${p.nome}</td>
+     <td>${p.data}</td>
+     <td>${p.horario}</td>
+     <td>${p.profissional}</td>
+     <td class="status-${p.status.toLowerCase()}">${p.status}</td>
+     <td>
+       <button class="btn-confirmar" onclick="enviarConfirmacao(${i})">Enviar confirmação</button>
+       <button class="btn-editar" onclick="editarPaciente(${i})">Editar</button>
+       <button class="btn-excluir" onclick="excluirPaciente(${i})">Excluir</button>
+     </td>
+   </tr>`;
+});
+
+ atualizarVagos();
+}
+
+
+/* ---------- FUNÇÕES DE PACIENTE ---------- */
+function editarPaciente(i){
+  editandoPaciente=i;
+  const p=pacientes[i];
+  mostrarAba('cadastro', document.querySelectorAll('#abas button')[1]);
+  document.getElementById("nome").value=p.nome;
+  document.getElementById("telefone").value=p.telefone||"";
+  const d=p.data.split("/").reverse().join("-");
+  document.getElementById("data").value=d;
+  document.getElementById("horario").value=p.horario;
+  const sel=document.getElementById("select-profissional");
+  const idx=profissionais.findIndex(pr=>`${pr.nome} (${pr.especialidade})`===p.profissional);
+  sel.value=idx!==-1?idx:"";
+  document.getElementById("btn-cadastrar").textContent="Atualizar";
+}
+
+function excluirPaciente(i){
+ if(confirm("Excluir este paciente?")){
+   pacientes.splice(i,1);
+   atualizarTabela();
+ }
+}
+
+/* ---------- RESTO DAS FUNÇÕES ---------- */
+function enviarConfirmacao(i){
+ pacienteSelecionado=i;
+ logWhats(pacientes[i].nome,"1️⃣ Confirmar<br>2️⃣ Cancelar<br>3️⃣ Reagendar");
+}
+
+function enviarResposta(){
+ const r=document.getElementById("resposta-paciente").value.trim();
+ if(sugestoesAtuais.length && !isNaN(r)){
+   const idx=parseInt(r)-1;
+   if(sugestoesAtuais[idx]){
+     const p=pacientes[pacienteSelecionado];
+     horariosVagos.push({nome:p.nome,horario:p.horario,ok:false});
+     p.data=dataReagendada;
+     p.horario=sugestoesAtuais[idx];
+     p.status="Reagendado";
+     sugestoesAtuais=[];
+     atualizarTabela();
+     document.getElementById("resposta-paciente").value="";
+     return;
+   }
+ }
+ if(r==="1") pacientes[pacienteSelecionado].status="Confirmado";
+ if(r==="2"){
+  horariosVagos.push({nome:pacientes[pacienteSelecionado].nome,horario:pacientes[pacienteSelecionado].horario,ok:false});
+  pacientes[pacienteSelecionado].status="Cancelado";
+ }
+ if(r==="3"){
+  pacientes[pacienteSelecionado].status="Reagendar";
+  prepararReagendamento(pacienteSelecionado);
+ }
+ atualizarTabela();
+}
+
+function prepararReagendamento(i){
+ pacienteSelecionado=i;
+ horariosSelecionados=[];
+ document.getElementById("titulo-reagendamento").innerText =
+   `Sugerir horários para ${pacientes[i].nome}`;
+ document.getElementById("horarios-escolhidos").innerHTML="";
+ document.getElementById("agendamento-container").style.display="block";
+}
+
+function adicionarHorario(){
+ const h=document.getElementById("novo-horario").value;
+ const dataInput=document.getElementById("data-reagendamento").value;
+ const profIndex=document.getElementById("select-profissional").value;
+ if(!dataInput){ alert("Selecione a data antes de sugerir horários."); return; }
+ if(!h) return;
+ const dataFormatada=dataInput.split("-").reverse().join("/");
+
+ const profNome = profIndex!=="" ? `${profissionais[profIndex].nome} (${profissionais[profIndex].especialidade})` : pacientes[pacienteSelecionado].profissional;
+
+ // Checar conflitos com outros pacientes (exceto o paciente que está reagendando)
+ const conflito=pacientes.some((p,i) =>
+   i !== pacienteSelecionado && 
+   p.data === dataFormatada &&
+   p.horario === h &&
+   p.profissional === profNome &&
+   p.status !== "Cancelado"
+ );
+
+ if(conflito){
+   alert(`⚠️ O horário ${h} já está ocupado por outro paciente com este profissional nesta data.`);
+   return;
+ }
+ if(horariosSelecionados.includes(h)){
+   alert("Horário já adicionado.");
+   return;
+ }
+ horariosSelecionados.push(h);
+ renderHorariosSelecionados();
+ document.getElementById("novo-horario").value="";
+}
+
+
+function renderHorariosSelecionados(){
+ const ul=document.getElementById("horarios-escolhidos");
+ ul.innerHTML="";
+ horariosSelecionados.forEach((h,i)=>{ ul.innerHTML+=`<li>${h} <button onclick="removerHorario(${i})">✖</button></li>`; });
+}
+
+function removerHorario(i){ horariosSelecionados.splice(i,1); renderHorariosSelecionados(); }
+
+function enviarSugestao(){
+ dataReagendada=document.getElementById("data-reagendamento").value.split("-").reverse().join("/");
+ sugestoesAtuais=[...horariosSelecionados];
+ if(!sugestoesAtuais.length){ alert("Adicione ao menos um horário."); return; }
+ let msg="Escolha um dos horários sugeridos:<br>";
+ sugestoesAtuais.forEach((h,i)=>msg+=`${i+1}️⃣ ${h}<br>`);
+ logWhats(pacientes[pacienteSelecionado].nome,msg);
+ document.getElementById("agendamento-container").style.display="none";
+}
+
+function cancelar(i){ horariosVagos.push({nome:pacientes[i].nome,horario:pacientes[i].horario,ok:false}); pacientes[i].status="Cancelado"; atualizarTabela(); }
+
+function atualizarVagos(){
+ const tb=document.querySelector("#tabela-vagos tbody");
+ tb.innerHTML="";
+ horariosVagos.forEach((h,i)=>{
+   // encontra o paciente correspondente pelo nome
+   const paciente = pacientes.find(p => p.nome === h.nome);
+   const dataPaciente = paciente ? paciente.data : "";
+   const profPaciente = paciente ? paciente.profissional : "";
+   tb.innerHTML+=`
+   <tr>
+     <td class="${h.ok?'nome-ok':'nome-vago'}">${h.nome}</td>
+     <td>${h.horario}</td>
+     <td>${dataPaciente}</td>
+     <td>${profPaciente}</td>
+     <td><button onclick="horariosVagos[${i}].ok=true;atualizarVagos()">Registrar</button></td>
+   </tr>`;
+ });
+}
+
+
+function logWhats(nome,msg){ mostrarAba('whatsapp',document.querySelectorAll('#abas button')[4]); document.getElementById("whats-log").innerHTML+=`<div class="whats-msg"><b>${nome}</b><br>${msg}</div>`; }
+
+function cadastrarPaciente(e){
+ e.preventDefault();
+ const telefoneValido=/^\(\d{2}\)\d{9}$/.test(telefone.value);
+ if(!telefoneValido){ alert("Telefone inválido."); return; }
+ const dataFormatada=data.value.split("-").reverse().join("/");
+ const selectProf=document.getElementById("select-profissional");
+ const profIndex=selectProf.value;
+ if(profIndex===""){ alert("Selecione um profissional."); return; }
+ const profNome=`${profissionais[profIndex].nome} (${profissionais[profIndex].especialidade})`;
+
+ // Atualização ou novo paciente
+ if(editandoPaciente!==null){
+   const p=pacientes[editandoPaciente];
+   const conflito=pacientes.some((x,i)=> i!==editandoPaciente && x.data===dataFormatada && x.horario===horario.value && x.profissional===profNome && x.status!=="Cancelado");
+   if(conflito){ alert("Já existe paciente neste horário com este profissional."); return; }
+   p.nome=nome.value; p.telefone=telefone.value; p.data=dataFormatada; p.horario=horario.value; p.profissional=profNome;
+   editandoPaciente=null;
+   document.getElementById("btn-cadastrar").textContent="Cadastrar";
+ } else {
+   const conflito=pacientes.some(p => p.data===dataFormatada && p.horario===horario.value && p.profissional===profNome && p.status!=="Cancelado");
+   if(conflito){ alert("Já existe paciente neste horário com este profissional."); return; }
+   pacientes.push({nome:nome.value,data:dataFormatada,horario:horario.value,profissional:profNome,status:"Aguardando",telefone:telefone.value});
+ }
+
+ atualizarTabela();
+ atualizarListaPacientes();
+ mostrarAba('agenda',document.querySelectorAll('#abas button')[0]);
+ document.getElementById("nome").value=""; document.getElementById("telefone").value=""; document.getElementById("data").value=""; document.getElementById("horario").value=""; document.getElementById("select-profissional").value="";
+}
+
+/* ---------- LISTA DE PACIENTES ---------- */
+function atualizarListaPacientes(){
+ const tb=document.querySelector("#tabela-lista-pacientes tbody");
+ tb.innerHTML="";
+ pacientes.forEach(p=>{
+   tb.innerHTML+=`<tr>
+     <td>${p.nome}</td>
+     <td>${p.telefone||""}</td>
+     <td>${p.profissional}</td>
+   </tr>`;
+ });
+}
+
+/* ---------- INICIALIZAÇÃO ---------- */
+atualizarTabela();
+renderProfissionais();
+atualizarSelectProfissional();
+atualizarListaPacientes();
+mostrarAba('agenda',document.querySelectorAll('#abas button')[0]);
+</script>
+
+</body>
+</html>
