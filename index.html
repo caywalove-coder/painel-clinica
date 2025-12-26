@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -37,6 +37,7 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 <body>
 
 <header>Painel de Atendimento – Clínica Exemplo</header>
+
 <main>
 <div id="abas">
   <button class="ativo" onclick="mostrarAba('agenda', this)">Agenda</button>
@@ -81,15 +82,6 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 <form onsubmit="cadastrarPaciente(event)">
 Nome: <input id="nome" required><br><br>
 Telefone: <input id="telefone" placeholder="(99)999999999" required><br><br>
-<script>
-const telefoneInput = document.getElementById("telefone");
-telefoneInput.addEventListener("input", function(e) {
-  let valor = telefoneInput.value.replace(/\D/g, "");
-  if(valor.length > 11) valor = valor.slice(0,11);
-  if(valor.length > 2) valor = `(${valor.slice(0,2)})${valor.slice(2)}`;
-  telefoneInput.value = valor;
-});
-</script>
 Data: <input type="date" id="data" required><br><br>
 Hora: <input type="time" id="horario" required><br><br>
 Profissional:
@@ -136,148 +128,249 @@ Especialidade: <input id="esp-prof" required>
 
 <!-- LISTA DE PACIENTES -->
 <div id="conteudo-lista-pacientes" class="aba">
-  <h3>Todos os pacientes cadastrados</h3>
-  <table id="tabela-lista-pacientes">
-    <thead>
-      <tr>
-        <th>Nome</th>
-        <th>Telefone</th>
-        <th>Profissional</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<h3>Todos os pacientes cadastrados</h3>
+<table id="tabela-lista-pacientes">
+<thead><tr><th>Nome</th><th>Telefone</th><th>Profissional</th></tr></thead>
+<tbody></tbody>
+</table>
 </div>
 
 </main>
 
 <script>
-const API_BASE = "https://694efba7b5bc648a93c1bd3c.mockapi.io/api/v1";
-
+/* ---------- VARIÁVEIS GLOBAIS ---------- */
 let pacientes = [];
-let profissionais = [];
-let editandoPaciente = null;
-let editandoProfissional = null;
 let pacienteSelecionado = null;
-let horariosVagos = [];
 let horariosSelecionados = [];
-let sugestoesAtuais = [];
-let dataReagendada = null;
+const API_BASE = "SUA_API_AQUI"; // Substitua pela URL da sua API
 
-/* ---------- CONTROLE DE ABAS ---------- */
-function mostrarAba(a,b){
- document.querySelectorAll('.aba').forEach(x=>x.style.display='none');
- document.querySelectorAll('#abas button').forEach(x=>x.classList.remove('ativo'));
- b.classList.add('ativo');
- document.getElementById('conteudo-'+a).style.display='block';
+/* ---------- FORMATAÇÃO TELEFONE ---------- */
+const telefoneInput = document.getElementById("telefone");
+telefoneInput.addEventListener("input", function() {
+  let valor = telefoneInput.value.replace(/\D/g, "");
+  if(valor.length > 11) valor = valor.slice(0,11);
+  if(valor.length > 2) valor = `(${valor.slice(0,2)})${valor.slice(2)}`;
+  telefoneInput.value = valor;
+});
+
+/* ---------- TROCA DE ABAS ---------- */
+function mostrarAba(aba, botao){
+ document.querySelectorAll('.aba').forEach(d=>d.style.display='none');
+ document.getElementById('conteudo-'+aba).style.display='block';
+ document.querySelectorAll('#abas button').forEach(b=>b.classList.remove('ativo'));
+ botao.classList.add('ativo');
 }
 
-/* ---------- API ---------- */
-async function carregarProfissionais(){
- try {
-   const res = await fetch(`${API_BASE}/profissionais`);
-   profissionais = await res.json();
-   renderProfissionais();
-   atualizarSelectProfissional();
- } catch(e){ alert("Erro ao carregar profissionais da API"); }
+/* ---------- CADASTRAR PACIENTE ---------- */
+function cadastrarPaciente(event){
+ event.preventDefault();
+ const nome = document.getElementById("nome").value;
+ const telefone = document.getElementById("telefone").value;
+ const data = document.getElementById("data").value;
+ const horario = document.getElementById("horario").value;
+ const profissional = document.getElementById("select-profissional").value;
+
+ const paciente = {
+   id: pacientes.length+1,
+   nome, telefone, data, horario, profissional, status:"Aguardando", mensagens:[]
+ };
+ pacientes.push(paciente);
+ carregarPacientes();
+ alert("Paciente cadastrado!");
 }
 
-async function carregarPacientes(){
- try {
-   const res = await fetch(`${API_BASE}/pacientes`);
-   pacientes = await res.json();
-   atualizarTabela();
-   atualizarListaPacientes();
- } catch(e){ alert("Erro ao carregar pacientes da API"); }
+/* ---------- ADICIONAR PROFISSIONAL ---------- */
+function adicionarProfissional(event){
+ event.preventDefault();
+ const nome = document.getElementById("nome-prof").value;
+ const esp = document.getElementById("esp-prof").value;
+ const select = document.getElementById("select-profissional");
+ const option = document.createElement("option");
+ option.value = nome;
+ option.textContent = nome;
+ select.appendChild(option);
+ document.getElementById("form-prof").reset();
+ carregarProfissionais();
 }
 
-/* ---------- PROFISSIONAIS ---------- */
-function renderProfissionais(){
- const tb=document.querySelector("#tabela-profissionais tbody");
- tb.innerHTML="";
- profissionais.forEach((p,i)=>{
-   tb.innerHTML+=`
-   <tr>
-    <td>${p.nome}</td>
-    <td>${p.especialidade}</td>
-    <td>
-      <button class="btn-editar" onclick="editarProfissional(${i})">Editar</button>
-      <button class="btn-excluir" onclick="excluirProfissional(${i})">Excluir</button>
-    </td>
-   </tr>`; 
- });
-}
-
-function atualizarSelectProfissional(){
- const select=document.getElementById("select-profissional");
- select.innerHTML='<option value="">Selecione um profissional</option>';
- profissionais.forEach((p,i)=> select.innerHTML+=`<option value="${i}">${p.nome} (${p.especialidade})</option>`);
-}
-
-function adicionarProfissional(e){
- e.preventDefault();
- const nomeInput = document.getElementById("nome-prof");
- const espInput = document.getElementById("esp-prof");
- if(editandoProfissional!==null){
-   profissionais[editandoProfissional]={nome:nomeInput.value, especialidade:espInput.value};
-   editandoProfissional=null;
- } else {
-   profissionais.push({nome:nomeInput.value, especialidade:espInput.value});
+/* ---------- CARREGAR PROFISSIONAIS ---------- */
+function carregarProfissionais(){
+ const tbody = document.querySelector("#tabela-profissionais tbody");
+ tbody.innerHTML="";
+ for(let i=0;i<select.options.length;i++){
+   const nome = select.options[i].value;
+   if(!nome) continue;
+   tbody.innerHTML+=`<tr>
+     <td>${nome}</td>
+     <td>-</td>
+     <td></td>
+   </tr>`;
  }
-nomeInput.value=""; espInput.value="";
-renderProfissionais();
-atualizarSelectProfissional();
 }
 
-/* ---------- PACIENTES ---------- */
-function atualizarTabela(){
- const tb=document.querySelector("#tabela-pacientes tbody");
- tb.innerHTML="";
- const filtro=document.getElementById("filtro-data").value;
- const pacientesOrdenados = [...pacientes].sort((a,b)=>{
-   const [d1,m1,y1]=a.data.split("/").map(Number);
-   const [d2,m2,y2]=b.data.split("/").map(Number);
-   const dateA = new Date(y1,m1-1,d1,...a.horario.split(":").map(Number));
-   const dateB = new Date(y2,m2-1,d2,...b.horario.split(":").map(Number));
-   return dateA - dateB;
- });
- pacientesOrdenados.forEach((p)=>{
-   if(filtro && p.data!==filtro.split("-").reverse().join("/")) return;
-   const i = pacientes.indexOf(p);
-   tb.innerHTML+=`
-   <tr>
+/* ---------- CARREGAR PACIENTES ---------- */
+function carregarPacientes(){
+ const tbody = document.querySelector("#tabela-pacientes tbody");
+ const tbodyLista = document.querySelector("#tabela-lista-pacientes tbody");
+ tbody.innerHTML="";
+ tbodyLista.innerHTML="";
+ pacientes.forEach((p,i)=>{
+   tbody.innerHTML+=`<tr>
      <td>${p.nome}</td>
      <td>${p.data}</td>
      <td>${p.horario}</td>
      <td>${p.profissional}</td>
      <td class="status-${p.status.toLowerCase()}">${p.status}</td>
      <td>
-       <button class="btn-confirmar" onclick="enviarConfirmacao(${i})">Enviar confirmação</button>
-       <button class="btn-editar" onclick="editarPaciente(${i})">Editar</button>
-       <button class="btn-excluir" onclick="excluirPaciente(${i})">Excluir</button>
+       <button onclick="abrirReagendamento(${i})" class="btn-editar">Reagendar</button>
+       <button onclick="enviarConfirmacao(${i})" class="btn-confirmar">Confirmar</button>
+       <button onclick="mostrarWhatsApp(${i})" class="btn-editar">WhatsApp</button>
+     </td>
+   </tr>`;
+   tbodyLista.innerHTML+=`<tr>
+     <td>${p.nome}</td>
+     <td>${p.telefone}</td>
+     <td>${p.profissional}</td>
+   </tr>`;
+ });
+ atualizarVagos();
+}
+
+/* ---------- HORÁRIOS VAGOS ---------- */
+function atualizarVagos(){
+ const tb=document.querySelector("#tabela-vagos tbody");
+ tb.innerHTML="";
+ pacientes.forEach((p,i)=>{
+   if(p.status==="Vago") return;
+   if(p.status==="Aguardando"){
+     tb.innerHTML+=`
+     <tr>
+       <td>${p.nome}</td>
+       <td>${p.horario}</td>
+       <td>${p.data}</td>
+       <td>${p.profissional}</td>
+       <td><button onclick="marcarHorarioVago(${i})">Marcar como vago</button></td>
+     </tr>`;
+   }
+ });
+}
+
+function marcarHorarioVago(i){
+ if(confirm("Marcar este horário como vago?")){
+   const paciente = pacientes[i];
+   paciente.status = "Vago";
+   carregarPacientes();
+ }
+}
+
+/* ---------- REAGENDAMENTO ---------- */
+function abrirReagendamento(i){
+ pacienteSelecionado = pacientes[i];
+ mostrarAba('agenda', document.querySelectorAll('#abas button')[0]);
+ document.getElementById("agendamento-container").style.display='block';
+ document.getElementById("titulo-reagendamento").textContent=`Reagendar ${pacienteSelecionado.nome}`;
+ horariosSelecionados=[];
+ document.getElementById("horarios-escolhidos").innerHTML="";
+ const dataReagendada = pacienteSelecionado.data.split("/").reverse().join("-");
+ document.getElementById("data-reagendamento").value = dataReagendada;
+}
+
+function adicionarHorario(){
+ const h = document.getElementById("novo-horario").value;
+ if(!h) return alert("Escolha um horário.");
+ horariosSelecionados.push(h);
+ renderHorariosSelecionados();
+}
+
+function renderHorariosSelecionados(){
+ const ul = document.getElementById("horarios-escolhidos");
+ ul.innerHTML="";
+ horariosSelecionados.forEach((h,i)=>{
+   ul.innerHTML+=`<li>${h} <button onclick="removerHorario(${i})">X</button></li>`;
+ });
+}
+
+function removerHorario(i){
+ horariosSelecionados.splice(i,1);
+ renderHorariosSelecionados();
+}
+
+function enviarSugestao(){
+ if(!pacienteSelecionado) return;
+ if(!document.getElementById("data-reagendamento").value) return alert("Escolha uma data.");
+ if(horariosSelecionados.length===0) return alert("Adicione pelo menos um horário.");
+
+ pacienteSelecionado.horariosSugestao = horariosSelecionados;
+ pacienteSelecionado.dataSugestao = document.getElementById("data-reagendamento").value.split("-").reverse().join("/");
+ pacienteSelecionado.status="Reagendar";
+
+ alert("Sugestões enviadas!");
+ document.getElementById("agendamento-container").style.display='none';
+ carregarPacientes();
+}
+
+/* ---------- WHATSAPP SIMULADO ---------- */
+function mostrarWhatsApp(i){
+ pacienteSelecionado = pacientes[i];
+ const log = document.getElementById("whats-log");
+ log.innerHTML="";
+ if(pacienteSelecionado.mensagens){
+   pacienteSelecionado.mensagens.forEach(m=>{
+     log.innerHTML+=`<div class="whats-msg">${m}</div>`;
+   });
+ }
+ mostrarAba('whatsapp', document.querySelectorAll('#abas button')[4]);
+}
+
+function enviarResposta(){
+ const msg = document.getElementById("resposta-paciente").value.trim();
+ if(!msg || !pacienteSelecionado) return;
+ pacienteSelecionado.mensagens = pacienteSelecionado.mensagens||[];
+ pacienteSelecionado.mensagens.push("Clínica: "+msg);
+
+ if(msg.toLowerCase().includes("confirmo")) pacienteSelecionado.status="Confirmado";
+ if(msg.toLowerCase().includes("cancel")) pacienteSelecionado.status="Cancelado";
+ if(msg.toLowerCase().includes("reagendar")) pacienteSelecionado.status="Reagendar";
+
+ mostrarWhatsApp(pacientes.indexOf(pacienteSelecionado));
+ document.getElementById("resposta-paciente").value="";
+ carregarPacientes();
+}
+
+/* ---------- CONFIRMAÇÃO RÁPIDA ---------- */
+function enviarConfirmacao(i){
+ const paciente = pacientes[i];
+ paciente.status="Confirmado";
+ carregarPacientes();
+}
+
+/* ---------- FILTRO DATA ---------- */
+function atualizarTabela(){
+ const filtro = document.getElementById("filtro-data").value;
+ const tbody = document.querySelector("#tabela-pacientes tbody");
+ tbody.innerHTML="";
+ pacientes.forEach((p,i)=>{
+   if(filtro && p.data!==filtro) return;
+   tbody.innerHTML+=`<tr>
+     <td>${p.nome}</td>
+     <td>${p.data}</td>
+     <td>${p.horario}</td>
+     <td>${p.profissional}</td>
+     <td class="status-${p.status.toLowerCase()}">${p.status}</td>
+     <td>
+       <button onclick="abrirReagendamento(${i})" class="btn-editar">Reagendar</button>
+       <button onclick="enviarConfirmacao(${i})" class="btn-confirmar">Confirmar</button>
+       <button onclick="mostrarWhatsApp(${i})" class="btn-editar">WhatsApp</button>
      </td>
    </tr>`;
  });
  atualizarVagos();
 }
 
-function atualizarListaPacientes(){
- const tb=document.querySelector("#tabela-lista-pacientes tbody");
- tb.innerHTML="";
- pacientes.forEach(p=>{
-   tb.innerHTML+=`<tr>
-     <td>${p.nome}</td>
-     <td>${p.telefone||""}</td>
-     <td>${p.profissional}</td>
-   </tr>`;
- });
-}
-
 /* ---------- INICIALIZAÇÃO ---------- */
-carregarProfissionais();
+mostrarAba('agenda', document.querySelectorAll('#abas button')[0]);
 carregarPacientes();
-mostrarAba('agenda',document.querySelectorAll('#abas button')[0]);
 </script>
+
 </body>
 </html>
-
