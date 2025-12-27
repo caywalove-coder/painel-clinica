@@ -1,39 +1,59 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel de Atendimento – Clínica</title>
+
 <style>
 body { font-family: Arial, sans-serif; margin:0; background:#f5f7fa; }
 #telefone { width: 95px; }
-header { background:#4a90e2; color:#fff; padding:20px; text-align:center; font-size:1.5em; position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; }
-#abas { padding: 10px 20px; background:#2980b9; position: fixed; top: 60px; left: 0; width: 100%; z-index: 999; }
+
+/* Cabeçalho fixo */
+header { background:#4a90e2; color:#fff; padding:20px; text-align:center; font-size:1.5em; position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;}
+
+/* Container de abas fixo abaixo do header */
+#abas { padding: 10px 20px; background:#2980b9; position: fixed; top: 60px; left: 0; width: 100%; z-index: 999;}
+
+/* Botões de abas */
 #abas button { padding:10px 20px; margin-right:5px; border:none; border-radius:4px; background:#2980b9; color:#fff; cursor:pointer; }
 #abas button.ativo { background:#27ae60; }
+
+/* Ajusta o padding do main para não ficar escondido atrás do header e abas */
 main { padding: 120px 20px 20px 20px; }
+
+/* layout de tabelas */
 .aba { display:none; }
 table { width:100%; border-collapse:collapse; background:#fff; margin-top:15px; }
 th,td { padding:12px; border-bottom:1px solid #ddd; text-align:center; }
 th { background:#eaf0fb; }
-.status-confirmado { color:#27ae60; font-weight:bold; }
-.status-cancelado { color:#e74c3c; font-weight:bold; }
-.status-reagendar { color:#f39c12; font-weight:bold; }
-.status-reagendado { color:#8e44ad; font-weight:bold; }
+
+.status-Confirmado { color:#27ae60; font-weight:bold; }
+.status-Cancelado { color:#e74c3c; font-weight:bold; }
+.status-Reagendar { color:#f39c12; font-weight:bold; }
+.status-Reagendado { color:#8e44ad; font-weight:bold; }
+.status-Aguardando { color:#34495e; font-weight:bold; }
+
 button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 .btn-confirmar { background:#27ae60; color:#fff; }
 .btn-falta { background:#e74c3c; color:#fff; }
 .btn-editar { background:#f39c12; color:#fff; }
 .btn-excluir { background:#e74c3c; color:#fff; }
+
 #agendamento-container, #whats-box { margin-top:20px; background:#fff; padding:15px; border-radius:5px; max-width:720px; }
+
 .whats-msg { background:#e1ffc7; padding:8px; margin-bottom:8px; border-radius:5px; }
+
 #horarios-escolhidos li { margin-bottom:6px; }
 #horarios-escolhidos button { margin-left:10px; background:#e74c3c; color:#fff; }
+
 #filtro-data { margin-bottom:20px; }
+
 .nome-vago { color:#e74c3c; font-weight:bold; }
 .nome-ok { color:#27ae60; font-weight:bold; }
 </style>
 </head>
+
 <body>
 
 <header>Painel de Atendimento – Clínica Exemplo</header>
@@ -60,18 +80,23 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 
   <div id="agendamento-container" style="display:none;">
     <h3 id="titulo-reagendamento"></h3>
-    Data: <input type="date" id="data-reagendamento"><br><br>
+
+    Data:
+    <input type="date" id="data-reagendamento"><br><br>
+
     <div style="display:flex; gap:30px; flex-wrap:wrap;">
       <div>
         <label>Horário:</label><br>
         <input type="time" id="novo-horario"><br><br>
         <button onclick="adicionarHorario()">Adicionar horário</button>
       </div>
+
       <div>
         <b>Horários sugeridos:</b>
         <ul id="horarios-escolhidos"></ul>
       </div>
     </div>
+
     <br>
     <button onclick="enviarSugestao()">Enviar sugestão</button>
   </div>
@@ -80,187 +105,509 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 <!-- CADASTRO -->
 <div id="conteudo-cadastro" class="aba">
 <form onsubmit="cadastrarPaciente(event)">
-Nome: <input id="nome" required><br><br>
-Telefone: <input id="telefone" placeholder="(99)999999999" required><br><br>
-Data: <input type="date" id="data" required><br><br>
-Hora: <input type="time" id="horario" required><br><br>
-Profissional:
-<select id="select-profissional" required>
-  <option value="">Selecione um profissional</option>
-</select>
-<br><br>
-<button id="btn-cadastrar">Cadastrar</button>
+  Nome: <input id="nome" required><br><br>
+  Telefone: <input id="telefone" placeholder="(99)999999999" required><br><br>
+  <script>
+  // máscara leve: mantida inline
+  const telefoneInput = document.getElementById("telefone");
+  telefoneInput.addEventListener("input", function(e) {
+    let valor = telefoneInput.value.replace(/\D/g, "");
+    if(valor.length > 11) valor = valor.slice(0,11);
+    if(valor.length > 2){
+      valor = `(${valor.slice(0,2)})${valor.slice(2)}`;
+    }
+    telefoneInput.value = valor;
+  });
+  </script>
+  Data: <input type="date" id="data" required><br><br>
+  Hora: <input type="time" id="horario" required><br><br>
+  Profissional:
+  <select id="select-profissional" required>
+    <option value="">Selecione um profissional</option>
+  </select>
+  <br><br>
+  <button id="btn-cadastrar">Cadastrar</button>
 </form>
 </div>
 
 <!-- HORÁRIOS VAGOS -->
 <div id="conteudo-vagos" class="aba">
-<table id="tabela-vagos">
-<thead><tr><th>Paciente</th><th>Horário vago</th><th>Data</th><th>Profissional</th><th>Ação</th></tr></thead>
-<tbody></tbody>
-</table>
+  <table id="tabela-vagos">
+    <thead><tr><th>Paciente</th><th>Horário vago</th><th>Data</th><th>Profissional</th><th>Ação</th></tr></thead>
+    <tbody></tbody>
+  </table>
 </div>
 
 <!-- PROFISSIONAIS -->
 <div id="conteudo-profissionais" class="aba">
-<h3>Cadastrar profissional</h3>
-<form id="form-prof" onsubmit="adicionarProfissional(event)">
-Nome: <input id="nome-prof" required>
-Especialidade: <input id="esp-prof" required>
-<button>Adicionar</button>
-</form>
+  <h3>Cadastrar profissional</h3>
+  <form id="form-prof" onsubmit="adicionarProfissional(event)">
+    Nome: <input id="nome-prof" required>
+    Especialidade: <input id="esp-prof" required>
+    <button>Adicionar</button>
+  </form>
 
-<table id="tabela-profissionais">
-<thead><tr><th>Nome</th><th>Especialidade</th><th>Ações</th></tr></thead>
-<tbody></tbody>
-</table>
+  <table id="tabela-profissionais">
+    <thead><tr><th>Nome</th><th>Especialidade</th><th>Ações</th></tr></thead>
+    <tbody></tbody>
+  </table>
 </div>
 
 <!-- WHATSAPP -->
 <div id="conteudo-whatsapp" class="aba">
-<div id="whats-box">
-<div id="whats-log"></div>
-<hr>
-<input id="resposta-paciente" placeholder="Digite a resposta">
-<button onclick="enviarResposta()">Enviar resposta</button>
-</div>
+  <div id="whats-box">
+    <div id="whats-log"></div>
+    <hr>
+    <input id="resposta-paciente" placeholder="Digite a resposta">
+    <button onclick="enviarResposta()">Enviar resposta</button>
+  </div>
 </div>
 
 <!-- LISTA DE PACIENTES -->
 <div id="conteudo-lista-pacientes" class="aba">
-<h3>Todos os pacientes cadastrados</h3>
-<table id="tabela-lista-pacientes">
-<thead><tr><th>Nome</th><th>Telefone</th><th>Profissional</th></tr></thead>
-<tbody></tbody>
-</table>
+  <h3>Todos os pacientes cadastrados</h3>
+  <table id="tabela-lista-pacientes">
+    <thead>
+      <tr><th>Nome</th><th>Telefone</th><th>Profissional</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </div>
 
 </main>
 
 <script>
-const API_BASE = "https://SEU-MOCKAPI-URL/api"; // substitua pelo seu endpoint real
+/*
+  ATENÇÃO: antes de usar, atualize BASE_URL com o endpoint do seu projeto MockAPI.
+  Ex.: const BASE_URL = "https://63xxxxxx.mockapi.io/api/v1";
+*/
+const BASE_URL = "https://SEU_BASE_URL_MOCKAPI/aqui"; // <-- substitua pelo seu base URL (sem barra final)
 
-let pacientes = [];
-let profissionais = [];
+if (BASE_URL.includes("SEU_BASE_URL")) {
+  console.warn("Altere BASE_URL para o endpoint do seu MockAPI antes de usar.");
+}
+
+/* ---------- UTIL / API ---------- */
+async function apiGet(resource, query="") {
+  const res = await fetch(`${BASE_URL}/${resource}${query}`);
+  if (!res.ok) throw new Error(`GET ${resource} falhou: ${res.status}`);
+  return await res.json();
+}
+async function apiPost(resource, body) {
+  const res = await fetch(`${BASE_URL}/${resource}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+  if (!res.ok) throw new Error(`POST ${resource} falhou: ${res.status}`);
+  return await res.json();
+}
+async function apiPut(resource, id, body) {
+  const res = await fetch(`${BASE_URL}/${resource}/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+  if (!res.ok) throw new Error(`PUT ${resource}/${id} falhou: ${res.status}`);
+  return await res.json();
+}
+async function apiDelete(resource, id) {
+  const res = await fetch(`${BASE_URL}/${resource}/${id}`, { method:"DELETE" });
+  if (!res.ok) throw new Error(`DELETE ${resource}/${id} falhou: ${res.status}`);
+  return await res.json();
+}
+
+/* ---------- ESTADO LOCAL (apenas cache) ---------- */
+let pacientes = [];        // cada item deve conter: id, nome, telefone, data (DD/MM/YYYY), horario, profissional, status
+let profissionais = [];    // cada item: id, nome, especialidade
+let horariosVagos = [];    // cada item: id, nome, horario, data, profissional, ok (boolean)
+let mensagens = [];       // mensagens WhatsApp (id, nome, mensagem, createdAt)
+let editandoPaciente = null;
+let editandoProfissional = null;
 let pacienteSelecionado = null;
+let horariosSelecionados = [];
+let sugestoesAtuais = [];
+let dataReagendada = null;
 
-/* ---------- CARREGAR PACIENTES ---------- */
-async function carregarPacientes() {
-  try {
-    const resp = await fetch(`${API_BASE}/pacientes`);
-    pacientes = await resp.json();
-    atualizarTabela();
-    atualizarVagos();
-    atualizarListaPacientes();
-  } catch (err) {
-    console.error("Erro ao carregar pacientes:", err);
-  }
+/* ---------- ABAS ---------- */
+function mostrarAba(a,b){
+  document.querySelectorAll('.aba').forEach(x=>x.style.display='none');
+  document.querySelectorAll('#abas button').forEach(x=>x.classList.remove('ativo'));
+  if(b) b.classList.add('ativo');
+  document.getElementById('conteudo-'+a).style.display='block';
 }
 
-/* ---------- CARREGAR PROFISSIONAIS ---------- */
-async function carregarProfissionais() {
+/* ---------- PROFISSIONAIS (API) ---------- */
+async function carregarProfissionais(){
   try {
-    const resp = await fetch(`${API_BASE}/profissionais`);
-    profissionais = await resp.json();
-    const select = document.getElementById("select-profissional");
-    select.innerHTML = '<option value="">Selecione um profissional</option>';
-    profissionais.forEach(p => {
-      select.innerHTML += `<option value="${p.nome}">${p.nome} (${p.especialidade})</option>`;
+    profissionais = await apiGet("profissionais");
+    renderProfissionais();
+    atualizarSelectProfissional();
+  } catch (err) { console.error(err); alert("Erro ao carregar profissionais."); }
+}
+
+function renderProfissionais(){
+  const tb=document.querySelector("#tabela-profissionais tbody");
+  tb.innerHTML="";
+  profissionais.forEach((p,i)=>{
+    tb.innerHTML+=`
+     <tr>
+      <td>${p.nome}</td>
+      <td>${p.especialidade}</td>
+      <td>
+        <button class="btn-editar" onclick="editarProfissional('${p.id}')">Editar</button>
+        <button class="btn-excluir" onclick="excluirProfissional('${p.id}')">Excluir</button>
+      </td>
+     </tr>`;
+  });
+}
+
+function atualizarSelectProfissional(){
+  const select=document.getElementById("select-profissional");
+  select.innerHTML='<option value="">Selecione um profissional</option>';
+  profissionais.forEach((p)=>{
+    select.innerHTML+=`<option value="${p.id}">${p.nome} (${p.especialidade})</option>`;
+  });
+}
+
+async function adicionarProfissional(e){
+  e.preventDefault();
+  const nomeInput = document.getElementById("nome-prof");
+  const espInput = document.getElementById("esp-prof");
+  try {
+    if(editandoProfissional){
+      await apiPut("profissionais", editandoProfissional, { nome: nomeInput.value, especialidade: espInput.value });
+      editandoProfissional = null;
+    } else {
+      await apiPost("profissionais", { nome: nomeInput.value, especialidade: espInput.value });
+    }
+    nomeInput.value=""; espInput.value="";
+    await carregarProfissionais();
+  } catch(err){ console.error(err); alert("Erro ao salvar profissional."); }
+}
+
+function editarProfissional(id){
+  const p = profissionais.find(x => x.id === id);
+  if(!p) return;
+  document.getElementById("nome-prof").value = p.nome;
+  document.getElementById("esp-prof").value = p.especialidade;
+  editandoProfissional = id;
+}
+
+async function excluirProfissional(id){
+  if(!confirm("Excluir este profissional?")) return;
+  try {
+    await apiDelete("profissionais", id);
+    await carregarProfissionais();
+  } catch(err){ console.error(err); alert("Erro ao excluir profissional."); }
+}
+
+/* ---------- PACIENTES / AGENDA (API) ---------- */
+
+function parseDateDMY(dmy){ // "DD/MM/YYYY" -> Date
+  const [d,m,y] = dmy.split("/").map(Number);
+  return new Date(y,m-1,d);
+}
+function formatDateToDMY(dateStr){ // "YYYY-MM-DD" -> "DD/MM/YYYY"
+  if(!dateStr) return "";
+  return dateStr.split("-").reverse().join("/");
+}
+
+async function carregarPacientes(){
+  try {
+    pacientes = await apiGet("pacientes");
+    // ordenar localmente por data+hora
+    pacientes.sort((a,b)=>{
+      const [dA,mA,yA] = a.data.split("/").map(Number);
+      const [dB,mB,yB] = b.data.split("/").map(Number);
+      const dateA = new Date(yA, mA-1, dA, ...a.horario.split(":").map(Number));
+      const dateB = new Date(yB, mB-1, dB, ...b.horario.split(":").map(Number));
+      return dateA - dateB;
     });
-    atualizarTabelaProfissionais();
-  } catch (err) {
-    console.error("Erro ao carregar profissionais:", err);
-  }
+    atualizarTabela();
+    atualizarListaPacientes();
+  } catch(err){ console.error(err); alert("Erro ao carregar pacientes."); }
 }
 
-/* ---------- ATUALIZAR TABELA ---------- */
-function atualizarTabela() {
-  const tbody = document.querySelector("#tabela-pacientes tbody");
-  tbody.innerHTML = "";
-  const filtro = document.getElementById("filtro-data").value;
+async function atualizarTabela(){
+  const tb=document.querySelector("#tabela-pacientes tbody");
+  tb.innerHTML="";
+  const filtro=document.getElementById("filtro-data").value;
+  const filtroDMY = filtro ? formatDateToDMY(filtro) : null;
 
-  pacientes.forEach((p, i) => {
-    if (filtro && p.data !== filtro) return;
-
-    tbody.innerHTML += `
+  pacientes.forEach((p)=>{
+    if(filtroDMY && p.data!==filtroDMY) return;
+    tb.innerHTML+=`
       <tr>
         <td>${p.nome}</td>
         <td>${p.data}</td>
         <td>${p.horario}</td>
         <td>${p.profissional}</td>
-        <td class="status-${p.status.toLowerCase()}">${p.status}</td>
+        <td class="status-${p.status}">${p.status}</td>
         <td>
-          <button class="btn-confirmar" onclick="enviarConfirmacao(${i})">Confirmar</button>
-          <button class="btn-editar" onclick="abrirReagendamento(${i})">Reagendar</button>
-          <button class="btn-falta" onclick="mostrarWhatsApp(${i})">WhatsApp</button>
-          <button class="btn-excluir" onclick="excluirPaciente(${i})">Excluir</button>
+          <button class="btn-confirmar" onclick="enviarConfirmacao('${p.id}')">Enviar confirmação</button>
+          <button class="btn-editar" onclick="editarPaciente('${p.id}')">Editar</button>
+          <button class="btn-excluir" onclick="excluirPaciente('${p.id}')">Excluir</button>
         </td>
-      </tr>
-    `;
+      </tr>`;
   });
+
+  await carregarVagas(); // mantém tabela de vagas sincronizada
 }
 
-/* ---------- ATUALIZAR LISTA DE PACIENTES ---------- */
-function atualizarListaPacientes() {
-  const tbody = document.querySelector("#tabela-lista-pacientes tbody");
-  tbody.innerHTML = "";
-  pacientes.forEach(p => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${p.nome}</td>
-        <td>${p.telefone}</td>
-        <td>${p.profissional}</td>
-      </tr>
-    `;
-  });
+/* editar paciente: carrega dados no formulário */
+async function editarPaciente(id){
+  const p = pacientes.find(x => x.id === id);
+  if(!p) return;
+  editandoPaciente = id;
+  mostrarAba('cadastro', document.querySelectorAll('#abas button')[1]);
+  document.getElementById("nome").value = p.nome;
+  document.getElementById("telefone").value = p.telefone || "";
+  document.getElementById("data").value = p.data.split("/").reverse().join("-");
+  document.getElementById("horario").value = p.horario;
+  // selecionar profissional pelo id: aqui assumimos que p.profissionalId existe; se não existir procuramos por nome
+  const select = document.getElementById("select-profissional");
+  // se na API você armazenou apenas string em p.profissional, tentamos achar pelo texto
+  const prof = profissionais.find(pr => (`${pr.nome} (${pr.especialidade})`) === p.profissional);
+  select.value = prof ? prof.id : "";
+  document.getElementById("btn-cadastrar").textContent="Atualizar";
 }
 
-/* ---------- ATUALIZAR TABELA DE PROFISSIONAIS ---------- */
-function atualizarTabelaProfissionais() {
-  const tbody = document.querySelector("#tabela-profissionais tbody");
-  tbody.innerHTML = "";
-  profissionais.forEach((p, i) => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${p.nome}</td>
-        <td>${p.especialidade}</td>
-        <td><button class="btn-excluir" onclick="excluirProfissional(${i})">Excluir</button></td>
-      </tr>
-    `;
-  });
-}
-
-/* ---------- EXCLUIR PACIENTE ---------- */
-async function excluirPaciente(i) {
-  const paciente = pacientes[i];
-  if (!confirm(`Deseja realmente excluir ${paciente.nome}?`)) return;
+async function excluirPaciente(id){
+  if(!confirm("Excluir este paciente?")) return;
   try {
-    await fetch(`${API_BASE}/pacientes/${paciente.id}`, { method: 'DELETE' });
-    await carregarPacientes(); // recarrega do MockAPI
-  } catch (err) {
-    console.error("Erro ao excluir paciente:", err);
-  }
+    await apiDelete("pacientes", id);
+    await carregarPacientes();
+  } catch(err){ console.error(err); alert("Erro ao excluir paciente."); }
 }
 
-/* ---------- EXCLUIR PROFISSIONAL ---------- */
-async function excluirProfissional(i) {
-  const prof = profissionais[i];
-  if (!confirm(`Deseja realmente excluir ${prof.nome}?`)) return;
+/* enviar confirmação: abre conversa */
+function enviarConfirmacao(id){
+  pacienteSelecionado = pacientes.findIndex(p => p.id === id);
+  const p = pacientes[pacienteSelecionado];
+  logWhats(p.nome, "1️⃣ Confirmar<br>2️⃣ Cancelar<br>3️⃣ Reagendar");
+}
+
+/* botão enviar resposta na aba WhatsApp */
+async function enviarResposta(){
+  const r = document.getElementById("resposta-paciente").value.trim();
+  if(!pacienteSelecionado && pacienteSelecionado !== 0) {
+    alert("Selecione um paciente antes (Enviar confirmação).");
+    return;
+  }
+
+  const p = pacientes[pacienteSelecionado];
+  if(sugestoesAtuais.length && !isNaN(r)){
+    const idx = parseInt(r)-1;
+    if(sugestoesAtuais[idx]){
+      try {
+        // marcar vaga anterior como vaga
+        await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
+        // atualizar paciente com novo horário
+        p.data = dataReagendada;
+        p.horario = sugestoesAtuais[idx];
+        p.status = "Reagendado";
+        await apiPut("pacientes", p.id, p);
+        sugestoesAtuais = [];
+        await carregarPacientes();
+        document.getElementById("resposta-paciente").value = "";
+        return;
+      } catch(err){ console.error(err); alert("Erro ao reagendar paciente."); }
+    }
+  }
+
   try {
-    await fetch(`${API_BASE}/profissionais/${prof.id}`, { method: 'DELETE' });
-    await carregarProfissionais(); // recarrega do MockAPI
-  } catch (err) {
-    console.error("Erro ao excluir profissional:", err);
-  }
+    if(r === "1") {
+      p.status = "Confirmado";
+      await apiPut("pacientes", p.id, p);
+    } else if(r === "2") {
+      await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
+      p.status = "Cancelado";
+      await apiPut("pacientes", p.id, p);
+    } else if(r === "3") {
+      p.status = "Reagendar";
+      await apiPut("pacientes", p.id, p);
+      prepararReagendamentoPorId(p.id);
+    }
+    // salvar mensagem de resposta (log)
+    await apiPost("mensagens", { nome: p.nome, mensagem: `Resposta: ${r}`, createdAt: new Date().toISOString() });
+    document.getElementById("resposta-paciente").value = "";
+    await carregarPacientes();
+  } catch(err){ console.error(err); alert("Erro ao processar resposta."); }
 }
 
-/* ---------- CHAMAR AO CARREGAR PÁGINA ---------- */
-window.addEventListener("load", async () => {
-  await carregarProfissionais();
-  await carregarPacientes();
-});
+/* preparar reagendamento - abre o painel de sugestão */
+function prepararReagendamento(i){
+  // nesta versão obsoleta, i era índice; adaptamos para id no fluxo acima
+  // função alternativa abaixo usa id
+}
+function prepararReagendamentoPorId(id){
+  const idx = pacientes.findIndex(p => p.id === id);
+  if(idx === -1) return;
+  pacienteSelecionado = idx;
+  horariosSelecionados = [];
+  document.getElementById("titulo-reagendamento").innerText = `Sugerir horários para ${pacientes[idx].nome}`;
+  document.getElementById("horarios-escolhidos").innerHTML="";
+  document.getElementById("agendamento-container").style.display="block";
+}
+
+async function adicionarHorario(){
+  const h = document.getElementById("novo-horario").value;
+  const dataInput = document.getElementById("data-reagendamento").value;
+  const profId = document.getElementById("select-profissional").value;
+  if(!dataInput){ alert("Selecione a data antes de sugerir horários."); return; }
+  if(!h) return;
+  const dataFormatada = formatDateToDMY(dataInput);
+
+  const profNome = profId ? `${(profissionais.find(p=>p.id===profId)||{}).nome} (${(profissionais.find(p=>p.id===profId)||{}).especialidade})` : pacientes[pacienteSelecionado].profissional;
+
+  // checar conflitos via API: buscar pacientes nessa data/hora/profissional que não estejam cancelados
+  try {
+    const existentes = await apiGet(`pacientes?data=${encodeURIComponent(dataFormatada)}&horario=${encodeURIComponent(h)}`);
+    const conflito = existentes.some(p => p.profissional === profNome && p.status !== "Cancelado");
+    if(conflito){
+      alert(`⚠️ O horário ${h} já está ocupado por outro paciente com este profissional nesta data.`);
+      return;
+    }
+  } catch(err){ console.error(err); alert("Erro ao verificar conflitos."); return; }
+
+  if(horariosSelecionados.includes(h)){ alert("Horário já adicionado."); return; }
+  horariosSelecionados.push(h);
+  renderHorariosSelecionados();
+  document.getElementById("novo-horario").value="";
+}
+
+function renderHorariosSelecionados(){
+  const ul=document.getElementById("horarios-escolhidos");
+  ul.innerHTML="";
+  horariosSelecionados.forEach((h,i)=>{ ul.innerHTML+=`<li>${h} <button onclick="removerHorario(${i})">✖</button></li>`; });
+}
+function removerHorario(i){ horariosSelecionados.splice(i,1); renderHorariosSelecionados(); }
+
+async function enviarSugestao(){
+  const dataInput = document.getElementById("data-reagendamento").value;
+  if(!dataInput){ alert("Selecione uma data."); return; }
+  dataReagendada = formatDateToDMY(dataInput);
+  sugestoesAtuais = [...horariosSelecionados];
+  if(!sugestoesAtuais.length){ alert("Adicione ao menos um horário."); return; }
+  let msg="Escolha um dos horários sugeridos:<br>";
+  sugestoesAtuais.forEach((h,i)=>msg+=`${i+1}️⃣ ${h}<br>`);
+  const nome = pacientes[pacienteSelecionado].nome;
+  await apiPost("mensagens", { nome, mensagem: msg, createdAt: new Date().toISOString() });
+  logWhats(nome, msg);
+  document.getElementById("agendamento-container").style.display="none";
+}
+
+/* cancelar (marca cancelado e cria vaga) */
+async function cancelar(id){
+  const p = pacientes.find(x => x.id === id);
+  if(!p) return;
+  try {
+    await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
+    p.status = "Cancelado";
+    await apiPut("pacientes", p.id, p);
+    await carregarPacientes();
+  } catch(err){ console.error(err); alert("Erro ao cancelar paciente."); }
+}
+
+/* ---------- VAGAS (API) ---------- */
+async function carregarVagas(){
+  try {
+    horariosVagos = await apiGet("vagas");
+    const tb=document.querySelector("#tabela-vagos tbody");
+    tb.innerHTML="";
+    horariosVagos.forEach((h)=>{
+      tb.innerHTML+=`
+        <tr>
+          <td class="${h.ok ? 'nome-ok' : 'nome-vago'}">${h.nome}</td>
+          <td>${h.horario}</td>
+          <td>${h.data || ''}</td>
+          <td>${h.profissional || ''}</td>
+          <td><button onclick="registrarVagaOk('${h.id}')">Registrar</button></td>
+        </tr>`;
+    });
+  } catch(err){ console.error(err); alert("Erro ao carregar vagas."); }
+}
+
+async function registrarVagaOk(id){
+  try {
+    const v = horariosVagos.find(x => x.id === id);
+    v.ok = true;
+    await apiPut("vagas", id, v);
+    await carregarVagas();
+  } catch(err){ console.error(err); alert("Erro ao atualizar vaga."); }
+}
+
+/* ---------- WHATSAPP (log) ---------- */
+async function logWhats(nome,msg){
+  mostrarAba('whatsapp', document.querySelectorAll('#abas button')[4]);
+  const div = document.getElementById("whats-log");
+  div.innerHTML += `<div class="whats-msg"><b>${nome}</b><br>${msg}</div>`;
+  // salvar no back-end
+  try {
+    await apiPost("mensagens", { nome, mensagem: msg, createdAt: new Date().toISOString() });
+  } catch(err){ console.error("Erro ao salvar mensagem:", err); }
+}
+
+/* ---------- CADASTRAR PACIENTE (API) ---------- */
+async function cadastrarPaciente(e){
+  e.preventDefault();
+  const nomeEl = document.getElementById("nome");
+  const telefoneEl = document.getElementById("telefone");
+  const dataEl = document.getElementById("data");
+  const horarioEl = document.getElementById("horario");
+  const selectProf = document.getElementById("select-profissional");
+
+  const telefoneValido=/^\(\d{2}\)\d{9}$/.test(telefoneEl.value);
+  if(!telefoneValido){ alert("Telefone inválido."); return; }
+  const dataFormatada = formatDateToDMY(dataEl.value);
+  const profId = selectProf.value;
+  if(profId===""){ alert("Selecione um profissional."); return; }
+  const profObj = profissionais.find(p=>p.id===profId);
+  const profNome = `${profObj.nome} (${profObj.especialidade})`;
+
+  try {
+    if(editandoPaciente){
+      const p = pacientes.find(x => x.id === editandoPaciente);
+      // checar conflito
+      const conflito = await apiGet(`pacientes?data=${encodeURIComponent(dataFormatada)}&horario=${encodeURIComponent(horarioEl.value)}`);
+      const existeConflito = conflito.some(x => x.profissional === profNome && x.id !== p.id && x.status !== "Cancelado");
+      if(existeConflito){ alert("Já existe paciente neste horário com este profissional."); return; }
+      p.nome = nomeEl.value;
+      p.telefone = telefoneEl.value;
+      p.data = dataFormatada;
+      p.horario = horarioEl.value;
+      p.profissional = profNome;
+      await apiPut("pacientes", p.id, p);
+      editandoPaciente = null;
+      document.getElementById("btn-cadastrar").textContent = "Cadastrar";
+    } else {
+      // checar conflito
+      const conflito = await apiGet(`pacientes?data=${encodeURIComponent(dataFormatada)}&horario=${encodeURIComponent(horarioEl.value)}`);
+      const existeConflito = conflito.some(x => x.profissional === profNome && x.status !== "Cancelado");
+      if(existeConflito){ alert("Já existe paciente neste horário com este profissional."); return; }
+      await apiPost("pacientes", { nome: nomeEl.value, telefone: telefoneEl.value, data: dataFormatada, horario: horarioEl.value, profissional: profNome, status: "Aguardando" });
+    }
+    // atualizar
+    nomeEl.value=""; telefoneEl.value=""; dataEl.value=""; horarioEl.value=""; selectProf.value="";
+    await carregarPacientes();
+    mostrarAba('agenda', document.querySelectorAll('#abas button')[0]);
+  } catch(err){ console.error(err); alert("Erro ao salvar paciente."); }
+}
+
+/* ---------- LISTA DE PACIENTES ---------- */
+function atualizarListaPacientes(){
+  const tb=document.querySelector("#tabela-lista-pacientes tbody");
+  tb.innerHTML="";
+  pacientes.forEach(p=>{
+    tb.innerHTML+=`<tr><td>${p.nome}</td><td>${p.telefone||""}</td><td>${p.profissional}</td></tr>`;
+  });
+}
+
+/* ---------- INICIALIZAÇÃO ---------- */
+async function init(){
+  try {
+    await carregarProfissionais();
+    await carregarPacientes();
+    await carregarVagas();
+    mostrarAba('agenda', document.querySelectorAll('#abas button')[0]);
+  } catch(err){ console.error(err); }
+}
+init();
+
 </script>
-
 
 </body>
 </html>
