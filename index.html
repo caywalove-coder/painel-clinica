@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel de Atendimento – Clínica</title>
-
 <style>
 body { font-family: Arial, sans-serif; margin:0; background:#f5f7fa; }
 #telefone { width: 95px; }
@@ -108,7 +107,6 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
   Nome: <input id="nome" required><br><br>
   Telefone: <input id="telefone" placeholder="(99)999999999" required><br><br>
   <script>
-  // máscara leve: mantida inline
   const telefoneInput = document.getElementById("telefone");
   telefoneInput.addEventListener("input", function(e) {
     let valor = telefoneInput.value.replace(/\D/g, "");
@@ -159,7 +157,7 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
     <div id="whats-log"></div>
     <hr>
     <input id="resposta-paciente" placeholder="Digite a resposta">
-    <button onclick="enviarResposta()">Enviar resposta</button>
+    <button id="btn-enviar-resposta">Enviar resposta</button>
   </div>
 </div>
 
@@ -177,18 +175,16 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 </main>
 
 <script>
-/*
-  ATENÇÃO: antes de usar, verifique BASE_URL (já configurado com o seu MockAPI).
-*/
-const BASE_URL = "https://694efba7b5bc648a93c1bd3c.mockapi.io/api/v1"; // seu endpoint MockAPI
+/* CONFIGURE AQUI */
+const BASE_URL = "https://694efba7b5bc648a93c1bd3c.mockapi.io/api/v1";
 
-/* ---------- UTIL / API (mais robusto para debug) ---------- */
+/* ---------- API helpers ---------- */
 async function apiGet(resource, query="") {
   const res = await fetch(`${BASE_URL}/${resource}${query}`);
   const text = await res.text();
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiGet: response not json", text); }
-  if (!res.ok) throw new Error(`GET ${resource} falhou: ${res.status} ${text}`);
+  if (!res.ok) throw new Error(`${res.status} ${text || res.statusText}`);
   return json;
 }
 async function apiPost(resource, body) {
@@ -196,7 +192,7 @@ async function apiPost(resource, body) {
   const text = await res.text();
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiPost: response not json", text); }
-  if (!res.ok) throw new Error(`POST ${resource} falhou: ${res.status} ${text}`);
+  if (!res.ok) throw new Error(`${res.status} ${text || res.statusText}`);
   return json;
 }
 async function apiPut(resource, id, body) {
@@ -204,7 +200,7 @@ async function apiPut(resource, id, body) {
   const text = await res.text();
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiPut: response not json", text); }
-  if (!res.ok) throw new Error(`PUT ${resource}/${id} falhou: ${res.status} ${text}`);
+  if (!res.ok) throw new Error(`${res.status} ${text || res.statusText}`);
   return json;
 }
 async function apiDelete(resource, id) {
@@ -212,29 +208,28 @@ async function apiDelete(resource, id) {
   const text = await res.text();
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiDelete: response not json", text); }
-  if (!res.ok) throw new Error(`DELETE ${resource}/${id} falhou: ${res.status} ${text}`);
+  if (!res.ok) throw new Error(`${res.status} ${text || res.statusText}`);
   return json;
 }
 
-/* ---------- ESTADO LOCAL (apenas cache) ---------- */
-let pacientes = [];        // id (string), nome, telefone, data (DD/MM/YYYY), horario, profissional, status
-let profissionais = [];    // id (string), nome, especialidade
-let horariosVagos = [];    // id, nome, horario, data, profissional, ok (boolean)
-let mensagens = [];        // id, nome, mensagem, createdAt
+/* ---------- estado ---------- */
+let pacientes = [];
+let profissionais = [];
+let horariosVagos = [];
+let mensagens = [];
 let editandoPaciente = null;
 let editandoProfissional = null;
-// Armazenamos o ID do paciente selecionado para confirmação/reagendamento
-let pacienteSelecionadoId = null;
+let pacienteSelecionadoId = null; // ID real (string) do paciente selecionado
 let horariosSelecionados = [];
 let sugestoesAtuais = [];
 let dataReagendada = null;
 
-/* helper para normalizar id comparisons */
+/* normaliza e procura paciente por id */
 function getPacienteById(id){
   return pacientes.find(p => String(p.id) === String(id));
 }
 
-/* ---------- ABAS ---------- */
+/* ---------- UI abas ---------- */
 function mostrarAba(a,b){
   document.querySelectorAll('.aba').forEach(x=>x.style.display='none');
   document.querySelectorAll('#abas button').forEach(x=>x.classList.remove('ativo'));
@@ -244,32 +239,34 @@ function mostrarAba(a,b){
   if(el) el.style.display='block';
 }
 
-/* ---------- PROFISSIONAIS (API) ---------- */
+/* ---------- Profissionais ---------- */
 async function carregarProfissionais(){
   try {
-    profissionais = await apiGet("profissionais");
-    profissionais = (profissionais||[]).map(p => ({ ...p, id: String(p.id) }));
+    const res = await apiGet("profissionais");
+    profissionais = (res || []).map(p => ({ ...p, id: p.id !== undefined ? String(p.id) : undefined }));
     renderProfissionais();
     atualizarSelectProfissional();
-  } catch (err) { console.error(err); alert("Erro ao carregar profissionais."); }
+  } catch(err){
+    console.error("Erro ao carregar profissionais:", err);
+    profissionais = [];
+    atualizarSelectProfissional();
+  }
 }
-
 function renderProfissionais(){
   const tb=document.querySelector("#tabela-profissionais tbody");
   tb.innerHTML="";
-  profissionais.forEach((p)=>{
+  profissionais.forEach(p=>{
     tb.innerHTML+=`
      <tr>
       <td>${p.nome}</td>
       <td>${p.especialidade}</td>
       <td>
-        <button class="btn-editar" onclick="editarProfissional('${p.id}')">Editar</button>
-        <button class="btn-excluir" onclick="excluirProfissional('${p.id}')">Excluir</button>
+        <button class="btn-editar" data-action="editar-prof" data-id="${p.id}">Editar</button>
+        <button class="btn-excluir" data-action="excluir-prof" data-id="${p.id}">Excluir</button>
       </td>
      </tr>`;
   });
 }
-
 function atualizarSelectProfissional(){
   const select=document.getElementById("select-profissional");
   select.innerHTML='<option value="">Selecione um profissional</option>';
@@ -277,7 +274,6 @@ function atualizarSelectProfissional(){
     select.innerHTML+=`<option value="${p.id}">${p.nome} (${p.especialidade})</option>`;
   });
 }
-
 async function adicionarProfissional(e){
   e.preventDefault();
   const nomeInput = document.getElementById("nome-prof");
@@ -291,41 +287,25 @@ async function adicionarProfissional(e){
     }
     nomeInput.value=""; espInput.value="";
     await carregarProfissionais();
-  } catch(err){ console.error(err); alert("Erro ao salvar profissional."); }
+  } catch(err){ console.error("Erro ao salvar profissional:", err); alert("Erro ao salvar profissional."); }
 }
 
-function editarProfissional(id){
-  const p = profissionais.find(x => String(x.id) === String(id));
-  if(!p) return;
-  document.getElementById("nome-prof").value = p.nome;
-  document.getElementById("esp-prof").value = p.especialidade;
-  editandoProfissional = id;
-}
-
-async function excluirProfissional(id){
-  if(!confirm("Excluir este profissional?")) return;
-  try {
-    await apiDelete("profissionais", id);
-    await carregarProfissionais();
-  } catch(err){ console.error(err); alert("Erro ao excluir profissional."); }
-}
-
-/* ---------- PACIENTES / AGENDA (API) ---------- */
-
-function parseDateDMY(dmy){ // "DD/MM/YYYY" -> Date
-  const [d,m,y] = dmy.split("/").map(Number);
-  return new Date(y,m-1,d);
-}
-function formatDateToDMY(dateStr){ // "YYYY-MM-DD" -> "DD/MM/YYYY"
+/* ---------- Pacientes / Agenda ---------- */
+function formatDateToDMY(dateStr){
   if(!dateStr) return "";
   return dateStr.split("-").reverse().join("/");
 }
-
 async function carregarPacientes(){
   try {
-    pacientes = await apiGet("pacientes");
-    pacientes = (pacientes||[]).map(p => ({ ...p, id: String(p.id) }));
-    // ordenar localmente por data+hora
+    const res = await apiGet("pacientes");
+    pacientes = (res || []).map((p, idx) => {
+      // normaliza id para string se disponível; se não houver, deixa undefined (avisamos)
+      return { ...p, id: p.id !== undefined ? String(p.id) : undefined, __index: idx };
+    });
+    // log de aviso se algum paciente não tem id (isso indica problema no MockAPI/collection)
+    const semId = pacientes.filter(p => p.id === undefined);
+    if(semId.length) console.warn("Alguns pacientes não possuem id (verifique collection 'pacientes' no MockAPI):", semId);
+
     pacientes.sort((a,b)=>{
       const [dA,mA,yA] = a.data.split("/").map(Number);
       const [dB,mB,yB] = b.data.split("/").map(Number);
@@ -335,7 +315,7 @@ async function carregarPacientes(){
     });
     atualizarTabela();
     atualizarListaPacientes();
-  } catch(err){ console.error(err); alert("Erro ao carregar pacientes."); }
+  } catch(err){ console.error("Erro ao carregar pacientes:", err); pacientes = []; }
 }
 
 async function atualizarTabela(){
@@ -346,6 +326,9 @@ async function atualizarTabela(){
 
   pacientes.forEach((p)=>{
     if(filtroDMY && p.data!==filtroDMY) return;
+    const safeId = p.id !== undefined ? p.id : `idx-${p.__index}`;
+    const confirmarBtn = p.id ? `<button class="btn-confirmar" data-action="confirmar" data-id="${p.id}">Enviar confirmação</button>`
+                              : `<button class="btn-confirmar" disabled title="Registro sem id — ver console">Enviar confirmação</button>`;
     tb.innerHTML+=`
       <tr>
         <td>${p.nome}</td>
@@ -354,20 +337,48 @@ async function atualizarTabela(){
         <td>${p.profissional}</td>
         <td class="status-${p.status}">${p.status}</td>
         <td>
-          <button class="btn-confirmar" onclick="enviarConfirmacao('${p.id}')">Enviar confirmação</button>
-          <button class="btn-editar" onclick="editarPaciente('${p.id}')">Editar</button>
-          <button class="btn-excluir" onclick="excluirPaciente('${p.id}')">Excluir</button>
+          ${confirmarBtn}
+          <button class="btn-editar" data-action="editar-paciente" data-id="${p.id || ''}">Editar</button>
+          <button class="btn-excluir" data-action="excluir-paciente" data-id="${p.id || ''}">Excluir</button>
         </td>
       </tr>`;
   });
 
-  await carregarVagas(); // mantém tabela de vagas sincronizada
+  // ligar delegação de eventos (pelo tbody)
+  const tbody = document.querySelector("#tabela-pacientes tbody");
+  tbody.removeEventListener('click', tabelaPacienteClickHandler);
+  tbody.addEventListener('click', tabelaPacienteClickHandler);
+
+  // carregar vagas (se recurso não existir, apenas logamos e seguimos)
+  try {
+    await carregarVagas();
+  } catch(e){
+    console.warn("carregarVagas falhou (ignorado):", e);
+  }
 }
 
-/* editar paciente: carrega dados no formulário */
+/* delegação para botões da tabela de pacientes */
+function tabelaPacienteClickHandler(evt){
+  const btn = evt.target.closest('button');
+  if(!btn) return;
+  const action = btn.dataset.action || (btn.classList.contains('btn-confirmar') ? 'confirmar' : null);
+  const id = btn.dataset.id;
+  if(action === 'confirmar') {
+    if(!id) { alert("Este registro não tem ID configurado; verifique sua collection no MockAPI."); return; }
+    enviarConfirmacao(id);
+  } else if(action === 'editar-paciente') {
+    if(!id) { alert("Este registro não tem ID configurado; verifique sua collection no MockAPI."); return; }
+    editarPaciente(id);
+  } else if(action === 'excluir-paciente') {
+    if(!id) { alert("Este registro não tem ID configurado; verifique sua collection no MockAPI."); return; }
+    excluirPaciente(id);
+  }
+}
+
+/* editar / excluir */
 async function editarPaciente(id){
   const p = getPacienteById(id);
-  if(!p) return;
+  if(!p){ alert("Paciente não encontrado localmente."); return; }
   editandoPaciente = String(id);
   mostrarAba('cadastro');
   document.getElementById("nome").value = p.nome;
@@ -378,51 +389,47 @@ async function editarPaciente(id){
   document.getElementById("select-profissional").value = prof ? prof.id : "";
   document.getElementById("btn-cadastrar").textContent="Atualizar";
 }
-
 async function excluirPaciente(id){
   if(!confirm("Excluir este paciente?")) return;
   try {
     await apiDelete("pacientes", id);
     await carregarPacientes();
-  } catch(err){ console.error(err); alert("Erro ao excluir paciente."); }
+  } catch(err){ console.error("Erro ao excluir paciente:", err); alert("Erro ao excluir paciente."); }
 }
 
-/* enviar confirmação: abre conversa */
+/* enviar confirmação (abre aba whatsapp e faz log) */
 function enviarConfirmacao(id){
-  pacienteSelecionadoId = String(id); // garantimos string
+  pacienteSelecionadoId = String(id);
   console.log("enviarConfirmacao chamado com id:", pacienteSelecionadoId);
-  console.log("lista de ids:", pacientes.map(p => p.id).join(","));
+  console.log("ids locais:", pacientes.map(p => p.id));
   const p = getPacienteById(pacienteSelecionadoId);
   if(!p){
-    alert("Paciente não encontrado.");
-    console.error("Paciente não encontrado para id:", pacienteSelecionadoId, "pacientes:", pacientes);
+    alert("Paciente não encontrado (ver console).");
+    console.error("Paciente não encontrado para id:", pacienteSelecionadoId, pacientes);
     return;
   }
-  logWhats(p.nome, "1️⃣ Confirmar<br>2️⃣ Cancelar<br>3️⃣ Reagendar");
+  const msg = "1️⃣ Confirmar<br>2️⃣ Cancelar<br>3️⃣ Reagendar";
+  logWhats(p.nome, msg).catch(e => console.warn("Falha ao logar mensagem:", e));
 }
 
-/* botão enviar resposta na aba WhatsApp
-   fluxo: recarrega paciente da API, aplica mudança e faz PUT; logs para debug */
+/* ---------- Respostas (botão enviar resposta) ---------- */
+document.getElementById("btn-enviar-resposta").addEventListener("click", enviarResposta);
+
 async function enviarResposta(){
   const r = document.getElementById("resposta-paciente").value.trim();
-  if(!pacienteSelecionadoId){
-    alert("Selecione um paciente antes (Enviar confirmação).");
-    return;
-  }
+  if(!pacienteSelecionadoId){ alert("Selecione um paciente antes (Enviar confirmação)."); return; }
 
   try {
-    // buscar paciente atualizado diretamente da API (evita inconsistências)
+    // buscar paciente atualizado da API
     const fresh = await apiGet(`pacientes/${pacienteSelecionadoId}`);
     if(!fresh) throw new Error("Paciente não encontrado na API (GET).");
-    const p = { ...fresh, id: String(fresh.id) }; // normaliza
+    const p = { ...fresh, id: String(fresh.id) };
 
-    // tratar respostas de sugestão (reagendamento)
+    // caso seja escolha entre sugestões
     if(sugestoesAtuais.length && !isNaN(r)){
       const sel = parseInt(r)-1;
       if(sugestoesAtuais[sel]){
-        // criar vaga antiga
-        await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
-        // atualizar paciente com sugestão escolhida
+        await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false }).catch(e=>{ console.warn("POST vagas falhou:", e); });
         p.data = dataReagendada;
         p.horario = sugestoesAtuais[sel];
         p.status = "Reagendado";
@@ -435,30 +442,27 @@ async function enviarResposta(){
       }
     }
 
-    // respostas simples
     if(r === "1") {
       p.status = "Confirmado";
       await apiPut("pacientes", p.id, p);
       logWhats(p.nome, "Paciente confirmou (1).");
     } else if(r === "2") {
-      // criar vaga e marcar cancelado
-      await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
+      await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false }).catch(e=>{ console.warn("POST vagas falhou:", e); });
       p.status = "Cancelado";
       await apiPut("pacientes", p.id, p);
       logWhats(p.nome, "Paciente cancelou (2).");
     } else if(r === "3") {
       p.status = "Reagendar";
-      await apiPut("pacientes", p.id, p); // atualiza status antes de abrir sugestões
+      await apiPut("pacientes", p.id, p);
       prepararReagendamentoPorId(p.id);
       logWhats(p.nome, "Paciente solicitou reagendamento (3).");
     } else {
-      // não reconheceu a resposta: apenas log
-      await apiPost("mensagens", { nome: p.nome, mensagem: `Resposta não reconhecida: ${r}`, createdAt: new Date().toISOString() });
+      await apiPost("mensagens", { nome: p.nome, mensagem: `Resposta não reconhecida: ${r}`, createdAt: new Date().toISOString() }).catch(e=>console.warn("POST mensagens falhou:", e));
       logWhats(p.nome, `Resposta não reconhecida: ${r}`);
     }
 
-    // registra a resposta no log
-    await apiPost("mensagens", { nome: p.nome, mensagem: `Resposta: ${r}`, createdAt: new Date().toISOString() });
+    // registra a resposta
+    await apiPost("mensagens", { nome: p.nome, mensagem: `Resposta: ${r}`, createdAt: new Date().toISOString() }).catch(e=>console.warn("POST mensagens falhou:", e));
     document.getElementById("resposta-paciente").value = "";
     await carregarPacientes();
   } catch(err){
@@ -467,10 +471,13 @@ async function enviarResposta(){
   }
 }
 
-/* preparar reagendamento por id - abre o painel de sugestão */
+/* ---------- Reagendamento ---------- */
 function prepararReagendamentoPorId(id){
   const p = getPacienteById(id);
-  if(!p) return;
+  if(!p){
+    alert("Paciente não encontrado localmente para reagendar.");
+    return;
+  }
   pacienteSelecionadoId = String(id);
   horariosSelecionados = [];
   document.getElementById("titulo-reagendamento").innerText = `Sugerir horários para ${p.nome}`;
@@ -491,11 +498,8 @@ async function adicionarHorario(){
   try {
     const existentes = await apiGet(`pacientes?data=${encodeURIComponent(dataFormatada)}&horario=${encodeURIComponent(h)}`);
     const conflito = existentes.some(p => p.profissional === profNome && p.status !== "Cancelado");
-    if(conflito){
-      alert(`⚠️ O horário ${h} já está ocupado por outro paciente com este profissional nesta data.`);
-      return;
-    }
-  } catch(err){ console.error(err); alert("Erro ao verificar conflitos."); return; }
+    if(conflito){ alert(`⚠️ O horário ${h} já está ocupado por outro paciente com este profissional nesta data.`); return; }
+  } catch(err){ console.warn("Erro ao verificar conflitos:", err); /* não bloqueia */ }
 
   if(horariosSelecionados.includes(h)){ alert("Horário já adicionado."); return; }
   horariosSelecionados.push(h);
@@ -519,28 +523,16 @@ async function enviarSugestao(){
   let msg="Escolha um dos horários sugeridos:<br>";
   sugestoesAtuais.forEach((h,i)=>msg+=`${i+1}️⃣ ${h}<br>`);
   const nome = pacienteSelecionadoId ? getPacienteById(pacienteSelecionadoId).nome : "Paciente";
-  await apiPost("mensagens", { nome, mensagem: msg, createdAt: new Date().toISOString() });
-  logWhats(nome, msg);
+  await apiPost("mensagens", { nome, mensagem: msg, createdAt: new Date().toISOString() }).catch(e=>console.warn("POST mensagens falhou:", e));
+  logWhats(nome, msg).catch(e=>console.warn("logWhats falhou:", e));
   document.getElementById("agendamento-container").style.display="none";
 }
 
-/* cancelar (marca cancelado e cria vaga) */
-async function cancelar(id){
-  const p = getPacienteById(id);
-  if(!p) return;
-  try {
-    await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
-    p.status = "Cancelado";
-    await apiPut("pacientes", p.id, p);
-    await carregarPacientes();
-  } catch(err){ console.error(err); alert("Erro ao cancelar paciente."); }
-}
-
-/* ---------- VAGAS (API) ---------- */
+/* ---------- Vagas ---------- */
 async function carregarVagas(){
   try {
-    horariosVagos = await apiGet("vagas");
-    horariosVagos = (horariosVagos||[]).map(v => ({ ...v, id: String(v.id) }));
+    const res = await apiGet("vagas");
+    horariosVagos = (res || []).map(v => ({ ...v, id: v.id !== undefined ? String(v.id) : undefined }));
     const tb=document.querySelector("#tabela-vagos tbody");
     tb.innerHTML="";
     horariosVagos.forEach((h)=>{
@@ -553,7 +545,13 @@ async function carregarVagas(){
           <td><button onclick="registrarVagaOk('${h.id}')">Registrar</button></td>
         </tr>`;
     });
-  } catch(err){ console.error(err); alert("Erro ao carregar vagas."); }
+  } catch(err){
+    // Se o recurso 'vagas' não existir no MockAPI, logamos e seguimos — crie a collection 'vagas' no MockAPI para funcionalidade completa.
+    console.warn("carregarVagas: não foi possível carregar /vagas (verifique collection 'vagas' no MockAPI). Erro:", err);
+    horariosVagos = [];
+    const tb=document.querySelector("#tabela-vagos tbody");
+    if(tb) tb.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#888">Collection 'vagas' não encontrada no MockAPI</td></tr>`;
+  }
 }
 
 async function registrarVagaOk(id){
@@ -563,20 +561,20 @@ async function registrarVagaOk(id){
     v.ok = true;
     await apiPut("vagas", id, v);
     await carregarVagas();
-  } catch(err){ console.error(err); alert("Erro ao atualizar vaga."); }
+  } catch(err){ console.error("Erro ao atualizar vaga:", err); alert("Erro ao atualizar vaga."); }
 }
 
-/* ---------- WHATSAPP (log) ---------- */
+/* ---------- WhatsApp (log) ---------- */
 async function logWhats(nome,msg){
   mostrarAba('whatsapp');
   const div = document.getElementById("whats-log");
   div.innerHTML += `<div class="whats-msg"><b>${nome}</b><br>${msg}</div>`;
   try {
     await apiPost("mensagens", { nome, mensagem: msg, createdAt: new Date().toISOString() });
-  } catch(err){ console.error("Erro ao salvar mensagem:", err); }
+  } catch(err){ console.warn("Erro ao salvar mensagem:", err); /* não interrompe fluxo */ }
 }
 
-/* ---------- CADASTRAR PACIENTE (API) ---------- */
+/* ---------- Cadastro paciente ---------- */
 async function cadastrarPaciente(e){
   e.preventDefault();
   const nomeEl = document.getElementById("nome");
@@ -596,6 +594,7 @@ async function cadastrarPaciente(e){
   try {
     if(editandoPaciente){
       const p = getPacienteById(editandoPaciente);
+      if(!p) { alert("Paciente para edição não encontrado."); return; }
       const conflito = await apiGet(`pacientes?data=${encodeURIComponent(dataFormatada)}&horario=${encodeURIComponent(horarioEl.value)}`);
       const existeConflito = conflito.some(x => x.profissional === profNome && String(x.id) !== String(p.id) && x.status !== "Cancelado");
       if(existeConflito){ alert("Já existe paciente neste horário com este profissional."); return; }
@@ -616,10 +615,10 @@ async function cadastrarPaciente(e){
     nomeEl.value=""; telefoneEl.value=""; dataEl.value=""; horarioEl.value=""; selectProf.value="";
     await carregarPacientes();
     mostrarAba('agenda');
-  } catch(err){ console.error(err); alert("Erro ao salvar paciente."); }
+  } catch(err){ console.error("Erro ao salvar paciente:", err); alert("Erro ao salvar paciente."); }
 }
 
-/* ---------- LISTA DE PACIENTES ---------- */
+/* ---------- Lista pacientes ---------- */
 function atualizarListaPacientes(){
   const tb=document.querySelector("#tabela-lista-pacientes tbody");
   tb.innerHTML="";
@@ -628,17 +627,16 @@ function atualizarListaPacientes(){
   });
 }
 
-/* ---------- INICIALIZAÇÃO ---------- */
+/* ---------- Inicialização ---------- */
 async function init(){
   try {
     await carregarProfissionais();
     await carregarPacientes();
     await carregarVagas();
     mostrarAba('agenda');
-  } catch(err){ console.error(err); }
+  } catch(err){ console.error("Erro init:", err); }
 }
 init();
-
 </script>
 
 </body>
