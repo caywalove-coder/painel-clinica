@@ -182,26 +182,38 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 */
 const BASE_URL = "https://694efba7b5bc648a93c1bd3c.mockapi.io/api/v1"; // seu endpoint MockAPI
 
-/* ---------- UTIL / API ---------- */
+/* ---------- UTIL / API (mais robusto para debug) ---------- */
 async function apiGet(resource, query="") {
   const res = await fetch(`${BASE_URL}/${resource}${query}`);
-  if (!res.ok) throw new Error(`GET ${resource} falhou: ${res.status}`);
-  return await res.json();
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiGet: response not json", text); }
+  if (!res.ok) throw new Error(`GET ${resource} falhou: ${res.status} ${text}`);
+  return json;
 }
 async function apiPost(resource, body) {
   const res = await fetch(`${BASE_URL}/${resource}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
-  if (!res.ok) throw new Error(`POST ${resource} falhou: ${res.status}`);
-  return await res.json();
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiPost: response not json", text); }
+  if (!res.ok) throw new Error(`POST ${resource} falhou: ${res.status} ${text}`);
+  return json;
 }
 async function apiPut(resource, id, body) {
   const res = await fetch(`${BASE_URL}/${resource}/${id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
-  if (!res.ok) throw new Error(`PUT ${resource}/${id} falhou: ${res.status}`);
-  return await res.json();
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiPut: response not json", text); }
+  if (!res.ok) throw new Error(`PUT ${resource}/${id} falhou: ${res.status} ${text}`);
+  return json;
 }
 async function apiDelete(resource, id) {
   const res = await fetch(`${BASE_URL}/${resource}/${id}`, { method:"DELETE" });
-  if (!res.ok) throw new Error(`DELETE ${resource}/${id} falhou: ${res.status}`);
-  return await res.json();
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch(e){ console.warn("apiDelete: response not json", text); }
+  if (!res.ok) throw new Error(`DELETE ${resource}/${id} falhou: ${res.status} ${text}`);
+  return json;
 }
 
 /* ---------- ESTADO LOCAL (apenas cache) ---------- */
@@ -236,6 +248,7 @@ function mostrarAba(a,b){
 async function carregarProfissionais(){
   try {
     profissionais = await apiGet("profissionais");
+    profissionais = (profissionais||[]).map(p => ({ ...p, id: String(p.id) }));
     renderProfissionais();
     atualizarSelectProfissional();
   } catch (err) { console.error(err); alert("Erro ao carregar profissionais."); }
@@ -311,8 +324,7 @@ function formatDateToDMY(dateStr){ // "YYYY-MM-DD" -> "DD/MM/YYYY"
 async function carregarPacientes(){
   try {
     pacientes = await apiGet("pacientes");
-    // garantir que ids são strings (normalização)
-    pacientes = pacientes.map(p => ({ ...p, id: String(p.id) }));
+    pacientes = (pacientes||[]).map(p => ({ ...p, id: String(p.id) }));
     // ordenar localmente por data+hora
     pacientes.sort((a,b)=>{
       const [dA,mA,yA] = a.data.split("/").map(Number);
@@ -389,7 +401,8 @@ function enviarConfirmacao(id){
   logWhats(p.nome, "1️⃣ Confirmar<br>2️⃣ Cancelar<br>3️⃣ Reagendar");
 }
 
-/* botão enviar resposta na aba WhatsApp */
+/* botão enviar resposta na aba WhatsApp
+   fluxo: recarrega paciente da API, aplica mudança e faz PUT; logs para debug */
 async function enviarResposta(){
   const r = document.getElementById("resposta-paciente").value.trim();
   if(!pacienteSelecionadoId){
@@ -397,17 +410,19 @@ async function enviarResposta(){
     return;
   }
 
-  const p = getPacienteById(pacienteSelecionadoId);
-  if(!p){
-    alert("Paciente selecionado não encontrado.");
-    return;
-  }
+  try {
+    // buscar paciente atualizado diretamente da API (evita inconsistências)
+    const fresh = await apiGet(`pacientes/${pacienteSelecionadoId}`);
+    if(!fresh) throw new Error("Paciente não encontrado na API (GET).");
+    const p = { ...fresh, id: String(fresh.id) }; // normaliza
 
-  if(sugestoesAtuais.length && !isNaN(r)){
-    const sel = parseInt(r)-1;
-    if(sugestoesAtuais[sel]){
-      try {
+    // tratar respostas de sugestão (reagendamento)
+    if(sugestoesAtuais.length && !isNaN(r)){
+      const sel = parseInt(r)-1;
+      if(sugestoesAtuais[sel]){
+        // criar vaga antiga
         await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
+        // atualizar paciente com sugestão escolhida
         p.data = dataReagendada;
         p.horario = sugestoesAtuais[sel];
         p.status = "Reagendado";
@@ -415,28 +430,41 @@ async function enviarResposta(){
         sugestoesAtuais = [];
         document.getElementById("resposta-paciente").value = "";
         await carregarPacientes();
+        logWhats(p.nome, `Paciente escolheu: ${r} -> ${p.horario} em ${p.data}`);
         return;
-      } catch(err){ console.error(err); alert("Erro ao reagendar paciente."); return; }
+      }
     }
-  }
 
-  try {
+    // respostas simples
     if(r === "1") {
       p.status = "Confirmado";
       await apiPut("pacientes", p.id, p);
+      logWhats(p.nome, "Paciente confirmou (1).");
     } else if(r === "2") {
+      // criar vaga e marcar cancelado
       await apiPost("vagas", { nome: p.nome, horario: p.horario, data: p.data, profissional: p.profissional, ok:false });
       p.status = "Cancelado";
       await apiPut("pacientes", p.id, p);
+      logWhats(p.nome, "Paciente cancelou (2).");
     } else if(r === "3") {
       p.status = "Reagendar";
-      await apiPut("pacientes", p.id, p);
+      await apiPut("pacientes", p.id, p); // atualiza status antes de abrir sugestões
       prepararReagendamentoPorId(p.id);
+      logWhats(p.nome, "Paciente solicitou reagendamento (3).");
+    } else {
+      // não reconheceu a resposta: apenas log
+      await apiPost("mensagens", { nome: p.nome, mensagem: `Resposta não reconhecida: ${r}`, createdAt: new Date().toISOString() });
+      logWhats(p.nome, `Resposta não reconhecida: ${r}`);
     }
+
+    // registra a resposta no log
     await apiPost("mensagens", { nome: p.nome, mensagem: `Resposta: ${r}`, createdAt: new Date().toISOString() });
     document.getElementById("resposta-paciente").value = "";
     await carregarPacientes();
-  } catch(err){ console.error(err); alert("Erro ao processar resposta."); }
+  } catch(err){
+    console.error("Erro ao processar resposta:", err);
+    alert("Erro ao processar resposta! Veja o console para detalhes.");
+  }
 }
 
 /* preparar reagendamento por id - abre o painel de sugestão */
@@ -512,7 +540,7 @@ async function cancelar(id){
 async function carregarVagas(){
   try {
     horariosVagos = await apiGet("vagas");
-    horariosVagos = horariosVagos.map(v => ({ ...v, id: String(v.id) }));
+    horariosVagos = (horariosVagos||[]).map(v => ({ ...v, id: String(v.id) }));
     const tb=document.querySelector("#tabela-vagos tbody");
     tb.innerHTML="";
     horariosVagos.forEach((h)=>{
