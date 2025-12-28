@@ -7,11 +7,13 @@
 
 <style>
 body{font-family:Arial;margin:0;background:#f5f7fa}
-header{background:#4a90e2;color:#fff;padding:20px;text-align:center;font-size:1.4em;position:fixed;top:0;width:100%;z-index:1000}
+header{background:#4a90e2;color:#fff;padding:20px;text-align:center;
+position:fixed;top:0;width:100%;z-index:1000}
 #abas{padding:10px 20px;background:#2980b9;position:fixed;top:70px;width:100%;z-index:999}
-#abas button{padding:10px 20px;margin-right:5px;border:0;border-radius:4px;background:#2980b9;color:#fff;cursor:pointer}
+#abas button{padding:10px 18px;margin-right:5px;border:0;border-radius:4px;
+background:#2980b9;color:#fff;cursor:pointer}
 #abas button.ativo{background:#27ae60}
-main{padding:140px 20px}
+main{padding:150px 20px}
 .aba{display:none}
 table{width:100%;border-collapse:collapse;background:#fff;margin-top:15px}
 th,td{padding:12px;border-bottom:1px solid #ddd;text-align:center}
@@ -31,11 +33,11 @@ button{padding:6px 12px;border-radius:4px;border:0;cursor:pointer}
 <header>Painel de Atendimento – Clínica</header>
 
 <div id="abas">
-<button class="ativo" onclick="mostrarAba('agenda',this)">Agenda</button>
-<button onclick="mostrarAba('cadastro',this)">Cadastro</button>
-<button onclick="mostrarAba('profissionais',this)">Profissionais</button>
-<button onclick="mostrarAba('lista-pacientes',this)">Lista de Pacientes</button>
-<button onclick="mostrarAba('whatsapp',this)">WhatsApp</button>
+  <button class="ativo" onclick="mostrarAba('agenda',this)">Agenda</button>
+  <button onclick="mostrarAba('cadastro',this)">Cadastro</button>
+  <button onclick="mostrarAba('profissionais',this)">Profissionais</button>
+  <button onclick="mostrarAba('lista',this)">Lista de Pacientes</button>
+  <button onclick="mostrarAba('whatsapp',this)">WhatsApp</button>
 </div>
 
 <main>
@@ -80,111 +82,125 @@ Especialidade: <input id="esp-prof" required>
 </div>
 
 <!-- LISTA -->
-<div id="conteudo-lista-pacientes" class="aba">
+<div id="conteudo-lista" class="aba">
 <table>
 <thead><tr><th>Nome</th><th>Telefone</th><th>Profissional</th></tr></thead>
 <tbody id="tabela-lista"></tbody>
 </table>
 </div>
 
-<!-- WHATS -->
+<!-- WHATSAPP -->
 <div id="conteudo-whatsapp" class="aba">
 <div id="whats-log"></div>
-<input id="resposta" placeholder="Mensagem">
+<input id="resposta" placeholder="Digite a mensagem">
 <button onclick="enviarResposta()">Enviar</button>
 </div>
 
 </main>
 
 <script>
-/* CONFIG */
-const API_BASE = "https://65a123abc.mockapi.io";
+/* ================= CONFIG ================= */
+// 👉 COLE A URL REAL DO SEU MOCKAPI AQUI
+const API_BASE = "https://694efba7b5bc648a93c1bd3c.mockapi.io/api/v1";
 
-/* CACHE */
+/* ================= CACHE ================= */
 let pacientes = [];
 let profissionais = [];
 let pacienteSelecionado = null;
 
-/* ABAS */
+/* ================= ABAS ================= */
 async function mostrarAba(aba,btn){
  document.querySelectorAll('.aba').forEach(a=>a.style.display='none');
  document.querySelectorAll('#abas button').forEach(b=>b.classList.remove('ativo'));
  btn.classList.add('ativo');
  document.getElementById("conteudo-"+aba).style.display="block";
 
- if(aba==="agenda"||aba==="lista-pacientes") await carregarPacientes();
- if(aba==="profissionais"||aba==="cadastro") await carregarProfissionais();
+ if(aba==="agenda" || aba==="lista") await carregarPacientes();
+ if(aba==="cadastro" || aba==="profissionais") await carregarProfissionais();
 }
 
-/* FETCH */
+/* ================= FETCH ================= */
 async function carregarPacientes(){
- const r=await fetch(`${API_BASE}/pacientes`);
- pacientes=await r.json();
+ const r = await fetch(`${API_BASE}/pacientes`);
+ pacientes = await r.json();
  renderAgenda();
  renderLista();
 }
 
 async function carregarProfissionais(){
- const r=await fetch(`${API_BASE}/profissionais`);
- profissionais=await r.json();
+ const r = await fetch(`${API_BASE}/profissionais`);
+ profissionais = await r.json();
  renderProfissionais();
 }
 
-/* RENDER */
+/* ================= RENDER ================= */
 function renderAgenda(){
- const tb=document.getElementById("tabela-agenda");
+ const tb = document.getElementById("tabela-agenda");
  tb.innerHTML="";
  pacientes.forEach(p=>{
   tb.innerHTML+=`
   <tr>
-   <td>${p.nome}</td>
-   <td>${p.data}</td>
-   <td>${p.horario}</td>
-   <td>${p.profissional}</td>
-   <td class="status-${p.status?.toLowerCase()}">${p.status||""}</td>
-   <td>
-    <button class="btn-confirmar" onclick="enviarConfirmacao('${p.id}')">Confirmar</button>
-    <button class="btn-whats" onclick="abrirWhats('${p.id}')">Whats</button>
-   </td>
+    <td>${p.nome}</td>
+    <td>${p.data}</td>
+    <td>${p.horario}</td>
+    <td>${p.profissional}</td>
+    <td class="status-${p.status?.toLowerCase()}">${p.status||""}</td>
+    <td>
+      <button class="btn-confirmar" onclick="enviarConfirmacao('${p.id}')">
+        Enviar confirmação
+      </button>
+      <button class="btn-whats" onclick="abrirWhats('${p.id}')">
+        Whats
+      </button>
+    </td>
   </tr>`;
  });
 }
 
 function renderLista(){
- const tb=document.getElementById("tabela-lista");
+ const tb = document.getElementById("tabela-lista");
  tb.innerHTML="";
  pacientes.forEach(p=>{
-  tb.innerHTML+=`<tr><td>${p.nome}</td><td>${p.telefone}</td><td>${p.profissional}</td></tr>`;
+  tb.innerHTML+=`
+   <tr>
+    <td>${p.nome}</td>
+    <td>${p.telefone}</td>
+    <td>${p.profissional}</td>
+   </tr>`;
  });
 }
 
 function renderProfissionais(){
- const tb=document.getElementById("tabela-profissionais");
- const sel=document.getElementById("select-profissional");
- tb.innerHTML=""; sel.innerHTML="<option value=''>Selecione</option>";
+ const tb = document.getElementById("tabela-profissionais");
+ const sel = document.getElementById("select-profissional");
+ tb.innerHTML="";
+ sel.innerHTML="<option value=''>Selecione</option>";
  profissionais.forEach(p=>{
   tb.innerHTML+=`<tr><td>${p.nome}</td><td>${p.especialidade}</td></tr>`;
   sel.innerHTML+=`<option value="${p.nome}">${p.nome}</option>`;
  });
 }
 
-/* CRUD */
+/* ================= CRUD ================= */
 async function cadastrarPaciente(e){
  e.preventDefault();
- const paciente={
-  nome:nome.value,
-  telefone:telefone.value,
-  data:data.value,
-  horario:horario.value,
-  profissional:select-profissional.value,
-  status:"Aguardando",
-  mensagens:[]
+
+ const paciente = {
+  nome: nome.value,
+  telefone: telefone.value,
+  data: data.value,
+  horario: horario.value,
+  profissional: document.getElementById("select-profissional").value,
+  status: "Aguardando",
+  mensagens: []
  };
+
  await fetch(`${API_BASE}/pacientes`,{
   method:"POST",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify(paciente)
  });
+
  mostrarAba('agenda',document.querySelectorAll('#abas button')[0]);
 }
 
@@ -193,30 +209,36 @@ async function adicionarProfissional(e){
  await fetch(`${API_BASE}/profissionais`,{
   method:"POST",
   headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({nome:nome-prof.value,especialidade:esp-prof.value})
+  body:JSON.stringify({
+    nome: document.getElementById("nome-prof").value,
+    especialidade: document.getElementById("esp-prof").value
+  })
  });
  await carregarProfissionais();
 }
 
-/* CONFIRMAÇÃO */
+/* ================= CONFIRMAÇÃO ================= */
 async function enviarConfirmacao(id){
- const p=pacientes.find(x=>x.id===id);
+ const p = pacientes.find(x=>x.id===id);
  if(!p) return alert("Paciente não encontrado");
+
  p.status="Confirmado";
- p.mensagens.push("Clínica: Consulta confirmada.");
+ p.mensagens.push("Clínica: Sua consulta está confirmada.");
+
  await fetch(`${API_BASE}/pacientes/${id}`,{
   method:"PUT",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify(p)
  });
+
  await carregarPacientes();
  abrirWhats(id);
 }
 
-/* WHATS */
+/* ================= WHATSAPP ================= */
 function abrirWhats(id){
- pacienteSelecionado=pacientes.find(p=>p.id===id);
- const log=document.getElementById("whats-log");
+ pacienteSelecionado = pacientes.find(p=>p.id===id);
+ const log = document.getElementById("whats-log");
  log.innerHTML="";
  pacienteSelecionado.mensagens.forEach(m=>{
   log.innerHTML+=`<div class="whats-msg">${m}</div>`;
@@ -226,19 +248,22 @@ function abrirWhats(id){
 
 async function enviarResposta(){
  if(!pacienteSelecionado) return;
- const msg=resposta.value.trim();
+ const msg = resposta.value.trim();
  if(!msg) return;
+
  pacienteSelecionado.mensagens.push("Clínica: "+msg);
+
  await fetch(`${API_BASE}/pacientes/${pacienteSelecionado.id}`,{
   method:"PUT",
   headers:{'Content-Type':'application/json'},
   body:JSON.stringify(pacienteSelecionado)
  });
+
  abrirWhats(pacienteSelecionado.id);
  resposta.value="";
 }
 
-/* INIT */
+/* ================= INIT ================= */
 mostrarAba('agenda',document.querySelectorAll('#abas button')[0]);
 </script>
 
